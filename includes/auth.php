@@ -327,4 +327,28 @@ function getUserStats($user_id)
         ];
     }
 }
+
+/**
+ * Get admin dashboard stats
+ * @return array Admin statistics
+ */
+function getAdminStats()
+{
+    try {
+        $pdo = getConnection();
+
+        return [
+            'total_users' => $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'user'")->fetchColumn(),
+            'total_earnings' => $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM ewallet_transactions WHERE type IN ('purchase', 'bonus', 'referral')")->fetchColumn(),
+            'pending_withdrawals' => $pdo->query("SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'pending'")->fetchColumn(),
+            'pending_refills' => $pdo->query("SELECT COUNT(*) FROM refill_requests WHERE status = 'pending'")->fetchColumn(),
+            'active_packages' => $pdo->query("SELECT COUNT(*) FROM user_packages WHERE status = 'active'")->fetchColumn()
+        ];
+
+    } catch (Exception $e) {
+        logEvent("Get admin stats error: " . $e->getMessage(), 'error');
+        return [];
+    }
+}
+
 ?>
