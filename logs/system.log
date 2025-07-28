@@ -18,3 +18,8 @@
 [2025-07-28 04:26:13] [info] User registration sponsor assignment: test1 -> No sponsor specified. Assigned to admin as default sponsor.
 [2025-07-28 04:26:13] [info] New user registered: test1
 [2025-07-28 04:26:25] [info] User login successful: test1
+[2025-07-28 09:05:13] [info] User login successful: admin
+[2025-07-28 09:05:55] [info] User logout: admin
+[2025-07-28 09:06:05] [info] User login successful: test1
+[2025-07-28 09:13:48] [info] User logout: test1
+[2025-07-28 09:20:16] [info] User login successful: test1

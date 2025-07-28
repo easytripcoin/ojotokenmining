@@ -246,3 +246,22 @@ VALUES (
 
 -- Create ewallet for admin user
 INSERT INTO ewallet (user_id, balance) VALUES (1, 0.00);
+
+-- Ensure packages table has all required columns
+ALTER TABLE packages
+ADD COLUMN description TEXT NULL AFTER price,
+ADD COLUMN features TEXT NULL AFTER description,
+ADD COLUMN order_index INT DEFAULT 0 AFTER features;
+
+-- Add package images support
+ALTER TABLE packages
+ADD COLUMN image_path VARCHAR(255) NULL AFTER features;
+
+-- Update existing packages with descriptions
+-- UPDATE packages SET
+--   description = 'Perfect for beginners to start earning',
+--   features = '• 20 USDT minimum\n• 50% monthly bonus\n• 3-month cycle\n• Referral bonuses',
+--   order_index = 1
+-- WHERE name = 'Starter Plan';
+
+-- Repeat for other packages...
