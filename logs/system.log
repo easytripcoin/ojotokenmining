@@ -1,0 +1,20 @@
+[2025-07-28 03:46:02] [warning] Failed login attempt for: admin
+[2025-07-28 03:47:29] [warning] Failed login attempt for: admin
+[2025-07-28 03:47:54] [warning] Failed login attempt for: admin@ojotokenmining.com
+[2025-07-28 03:50:13] [warning] Failed login attempt for: admin
+[2025-07-28 03:53:54] [warning] Failed login attempt for: admin
+[2025-07-28 03:54:29] [warning] Failed login attempt for: admin
+[2025-07-28 03:55:41] [warning] Failed login attempt for: admin
+[2025-07-28 03:58:29] [warning] Failed login attempt for: admin
+[2025-07-28 04:01:01] [info] User login successful: admin
+[2025-07-28 04:02:30] [info] User logout: admin
+[2025-07-28 04:02:40] [info] User login successful: admin
+[2025-07-28 04:03:53] [info] User logout: admin
+[2025-07-28 04:19:49] [info] User registration sponsor assignment: test1 -> No sponsor assigned.
+[2025-07-28 04:19:49] [info] New user registered: test1
+[2025-07-28 04:25:01] [warning] Failed login attempt for: admin
+[2025-07-28 04:25:34] [info] User login successful: admin
+[2025-07-28 04:25:52] [info] User logout: admin
+[2025-07-28 04:26:13] [info] User registration sponsor assignment: test1 -> No sponsor specified. Assigned to admin as default sponsor.
+[2025-07-28 04:26:13] [info] New user registered: test1
+[2025-07-28 04:26:25] [info] User login successful: test1
