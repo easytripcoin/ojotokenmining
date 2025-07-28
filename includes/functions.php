@@ -535,4 +535,51 @@ function updateAdminSetting($setting_name, $setting_value)
         return false;
     }
 }
+
+/**
+ * Get withdrawal requests for user
+ * @param int $user_id User ID
+ * @return array Withdrawal requests
+ */
+function getUserWithdrawalRequests($user_id)
+{
+    try {
+        $pdo = getConnection();
+        $stmt = $pdo->prepare("
+            SELECT * FROM withdrawal_requests 
+            WHERE user_id = ? 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        ");
+        $stmt->execute([$user_id]);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        logEvent("Get withdrawal requests error: " . $e->getMessage(), 'error');
+        return [];
+    }
+}
+
+/**
+ * Get refill requests for user
+ * @param int $user_id User ID
+ * @return array Refill requests
+ */
+function getUserRefillRequests($user_id)
+{
+    try {
+        $pdo = getConnection();
+        $stmt = $pdo->prepare("
+            SELECT * FROM refill_requests 
+            WHERE user_id = ? 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        ");
+        $stmt->execute([$user_id]);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        logEvent("Get refill requests error: " . $e->getMessage(), 'error');
+        return [];
+    }
+}
+
 ?>
