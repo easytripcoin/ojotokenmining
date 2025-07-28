@@ -265,3 +265,7 @@ ADD COLUMN image_path VARCHAR(255) NULL AFTER features;
 -- WHERE name = 'Starter Plan';
 
 -- Repeat for other packages...
+
+-- Add transaction_hash to refill_requests
+ALTER TABLE refill_requests
+ADD COLUMN transaction_hash VARCHAR(255) NULL AFTER amount;

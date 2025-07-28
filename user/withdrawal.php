@@ -46,23 +46,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ");
                     $stmt->execute([$user_id, $amount, $usdt_amount, $wallet_address]);
 
-                    // Deduct from balance (pending approval)
+                    $withdrawal_id = $pdo->lastInsertId();
+
+                    // 2. Then use processEwalletTransaction with the reference
                     if (
                         processEwalletTransaction(
                             $user_id,
-                            'withdrawal_pending',
+                            'withdrawal',
                             -$amount,
                             'Withdrawal request pending approval',
-                            $pdo->lastInsertId()
+                            $withdrawal_id
                         )
                     ) {
-
-                        $success = 'Withdrawal request submitted successfully. You will receive confirmation once processed.';
+                        $success = 'Withdrawal request submitted successfully.';
                     } else {
-                        $errors['general'] = 'Failed to process withdrawal. Please try again.';
+                        // Rollback withdrawal if ewallet transaction fails
+                        $pdo->prepare("DELETE FROM withdrawal_requests WHERE id = ?")->execute([$withdrawal_id]);
+                        $errors['general'] = 'Failed to process withdrawal.';
                     }
                 } catch (Exception $e) {
-                    $errors['general'] = 'An error occurred. Please try again.';
+                    // $errors['general'] = 'An error occurred. Please try again.';
+                    $errors['general'] = $e->getMessage();
                 }
             }
         } else {
@@ -116,6 +120,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <?php if (isset($errors['general'])): ?>
                                 <div class="alert alert-danger"><?= htmlspecialchars($errors['general']) ?></div>
                             <?php endif; ?>
+
+                            <?php
+                            if (isset($errors['general'])) {
+                                // Debug information
+                                echo "<pre>";
+                                echo "Withdrawal attempt failed\n";
+                                echo "CSRF Status: " . (!verifyCSRFToken($_POST['csrf_token'] ?? '') ? 'INVALID' : 'VALID') . "\n";
+                                echo "Amount: " . htmlspecialchars($_POST['amount']) . "\n";
+                                echo "Wallet Address Status: " . ((strlen($_POST['wallet_address']) < 25 || !preg_match('/^T[A-Za-z0-9]{33}$/', $_POST['wallet_address'])) ? "INVALID" : "VALID") . "\n";
+                                echo "</pre>";
+                            }
+                            ?>
 
                             <form method="POST" action="">
                                 <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">

@@ -106,44 +106,43 @@ function addEwalletTransaction($user_id, $type, $amount, $description, $referenc
  * @param int|null $reference_id Reference ID
  * @return bool Success status
  */
+// Temporary debug in functions.php
 function processEwalletTransaction($user_id, $type, $amount, $description, $reference_id = null)
 {
     try {
+        error_log("Processing transaction: user=$user_id, type=$type, amount=$amount");
+
         $pdo = getConnection();
-        $pdo->beginTransaction();
-
-        // Get current balance
         $current_balance = getEwalletBalance($user_id);
-
-        // Calculate new balance
         $new_balance = $current_balance + $amount;
 
-        // Check for negative balance on debit transactions
         if ($amount < 0 && $new_balance < 0) {
-            $pdo->rollBack();
-            return false; // Insufficient funds
+            error_log("Insufficient funds: current=$current_balance, needed=$amount");
+            return false;
         }
 
         // Update balance
-        if (!updateEwalletBalance($user_id, $new_balance)) {
-            $pdo->rollBack();
+        $stmt = $pdo->prepare("UPDATE ewallet SET balance = ?, updated_at = NOW() WHERE user_id = ?");
+        if (!$stmt->execute([$new_balance, $user_id])) {
+            error_log("Failed to update balance");
             return false;
         }
 
-        // Add transaction record
-        if (!addEwalletTransaction($user_id, $type, $amount, $description, $reference_id)) {
-            $pdo->rollBack();
-            return false;
+        // Add transaction
+        $stmt = $pdo->prepare("
+            INSERT INTO ewallet_transactions (user_id, type, amount, description, reference_id, status) 
+            VALUES (?, ?, ?, ?, ?, 'pending')
+        ");
+        $result = $stmt->execute([$user_id, $type, $amount, $description, $reference_id]);
+
+        if ($result) {
+            error_log("Transaction processed successfully");
         }
 
-        $pdo->commit();
-        return true;
+        return $result;
 
     } catch (Exception $e) {
-        if (isset($pdo)) {
-            $pdo->rollBack();
-        }
-        logEvent("Process ewallet transaction error: " . $e->getMessage(), 'error');
+        error_log("Transaction error: " . $e->getMessage());
         return false;
     }
 }

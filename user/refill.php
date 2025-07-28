@@ -38,10 +38,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $stmt->execute([$user_id, $amount, $transaction_hash]);
 
-                $success = 'Refill request submitted successfully. Your account will be credited once confirmed.';
+                $refill_id = $pdo->lastInsertId();
 
+                // 2. Use processEwalletTransaction for pending deposit
+                if (
+                    processEwalletTransaction(
+                        $user_id,
+                        'deposit',
+                        $amount,
+                        'USDT refill pending approval',
+                        $refill_id
+                    )
+                ) {
+                    $success = 'Refill request submitted successfully. Your account will be credited once confirmed.';
+                } else {
+                    // Rollback refill request if ewallet transaction fails
+                    $pdo->prepare("DELETE FROM refill_requests WHERE id = ?")->execute([$refill_id]);
+                    $errors['general'] = 'Failed to process refill request.';
+                }
             } catch (Exception $e) {
                 $errors['general'] = 'Failed to submit refill request. Please try again.';
+                // $errors['general'] = $e->getMessage();
             }
         } else {
             $errors = $validation['errors'];
@@ -95,6 +112,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div class="alert alert-danger"><?= htmlspecialchars($errors['general']) ?></div>
                             <?php endif; ?>
 
+                            <?php
+                            // if (isset($errors['general'])) {
+                            //     // Debug information
+                            //     echo "<pre>";
+                            //     echo "Refill attempt failed\n";
+                            //     echo "CSRF Status: " . (!verifyCSRFToken($_POST['csrf_token'] ?? '') ? 'INVALID' : 'VALID') . "\n";
+                            //     echo "Amount: " . htmlspecialchars($_POST['amount']) . "\n";
+                            //     echo "Transaction Hash: " . htmlspecialchars($_POST['transaction_hash']) . "\n";
+                            //     echo "</pre>";
+                            // }
+                            ?>
+
                             <form method="POST" action="">
                                 <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
 
@@ -133,11 +162,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="alert alert-info">
                                 <h6>Send USDT (TRC20) to:</h6>
                                 <div class="bg-light p-3 rounded">
-                                    <code class="fw-bold"><?= htmlspecialchars($admin_wallet) ?></code>
-                                    <button class="btn btn-sm btn-outline-primary float-end"
-                                        onclick="copyToClipboard('<?= htmlspecialchars($admin_wallet) ?>')">
-                                        <i class="fas fa-copy"></i>
-                                    </button>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control"
+                                            value="<?= htmlspecialchars($admin_wallet) ?>" readonly id="walletAddress">
+                                        <button class="btn btn-outline-primary" type="button" onclick="selectAndCopy()">
+                                            <i class="fas fa-copy"></i> Copy
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -158,10 +189,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                alert('Wallet address copied to clipboard!');
-            });
+        function selectAndCopy() {
+            const input = document.getElementById('walletAddress');
+            input.select();
+            input.setSelectionRange(0, 99999);
+
+            try {
+                document.execCommand('copy');
+                alert('Wallet address copied!');
+            } catch (err) {
+                prompt('Copy this address:', input.value);
+            }
         }
     </script>
 </body>
