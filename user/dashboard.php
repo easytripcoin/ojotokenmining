@@ -205,6 +205,47 @@ try {
                 </div>
             </div>
 
+            <!-- Referral Stats -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-users"></i> Referral Statistics</h5>
+                        </div>
+                        <div class="card-body">
+                            <?php
+                            $referral_stats = getUserReferralStats($user_id);
+                            ?>
+                            <div class="row">
+                                <div class="col-6">
+                                    <h6>Total Referrals</h6>
+                                    <h3><?= $referral_stats['total_referrals'] ?></h3>
+                                </div>
+                                <div class="col-6">
+                                    <h6>Total Bonus</h6>
+                                    <h3><?= formatCurrency(getUserReferralBonus($user_id)) ?></h3>
+                                </div>
+                            </div>
+
+                            <?php foreach ($referral_stats['level_stats'] as $level => $stats): ?>
+                                <?php if ($stats['count'] > 0): ?>
+                                    <div class="mt-3">
+                                        <strong>Level <?= $level ?>:</strong>
+                                        <span class="float-end"><?= $stats['count'] ?> users -
+                                            <?= formatCurrency($stats['bonus']) ?></span>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+
+                            <hr>
+                            <a href="genealogy.php" class="btn btn-primary btn-sm">
+                                <i class="fas fa-sitemap"></i> View Genealogy
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Active Packages -->
             <div class="row mb-4">
                 <div class="col-md-8">
@@ -295,7 +336,7 @@ try {
                                                     </td>
                                                     <td><?= htmlspecialchars($tx['description']) ?></td>
                                                     <td class="<?= $tx['amount'] > 0 ? 'text-success' : 'text-danger' ?>">
-                                                        <?= $tx['amount'] > 0 ? '+' : '' ?>        <?= formatCurrency($tx['amount']) ?>
+                                                        <?= $tx['amount'] > 0 ? '+' : '' ?>         <?= formatCurrency($tx['amount']) ?>
                                                     </td>
                                                     <td><?= timeAgo($tx['created_at']) ?></td>
                                                 </tr>

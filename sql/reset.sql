@@ -1,14 +1,24 @@
--- OjoTokenMining Database Schema
--- Phase 1: Core tables for authentication and system foundation
+-- ===================================================
+-- OjoTokenMining - Complete Database Reset
+-- Includes all tables from Phase 1-6
+-- ===================================================
 
+-- Drop database if exists
 DROP DATABASE IF EXISTS ojotokenmining;
 
-CREATE DATABASE IF NOT EXISTS ojotokenmining;
+-- Create database
+CREATE DATABASE IF NOT EXISTS ojotokenmining CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 USE ojotokenmining;
 
+-- ===================================================
+-- CORE TABLES
+-- ===================================================
+
 -- Users table
-CREATE TABLE users (
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
@@ -26,17 +36,26 @@ CREATE TABLE users (
 );
 
 -- Packages table
-CREATE TABLE packages (
+DROP TABLE IF EXISTS packages;
+
+CREATE TABLE IF NOT EXISTS packages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
     status ENUM('active', 'inactive') DEFAULT 'active',
+    description TEXT NULL,
+    features TEXT NULL,
+    order_index INT DEFAULT 0,
+    image_path VARCHAR(255) NULL,
+    referral_bonus_enabled TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- User packages (purchases)
-CREATE TABLE user_packages (
+DROP TABLE IF EXISTS user_packages;
+
+CREATE TABLE IF NOT EXISTS user_packages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     package_id INT NOT NULL,
@@ -53,8 +72,13 @@ CREATE TABLE user_packages (
     FOREIGN KEY (package_id) REFERENCES packages (id) ON DELETE CASCADE
 );
 
--- Ewallet system
-CREATE TABLE ewallet (
+-- ===================================================
+-- E-WALLET SYSTEM
+-- ===================================================
+
+DROP TABLE IF EXISTS ewallet;
+
+CREATE TABLE IF NOT EXISTS ewallet (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNIQUE NOT NULL,
     balance DECIMAL(15, 2) DEFAULT 0.00,
@@ -63,8 +87,9 @@ CREATE TABLE ewallet (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- Ewallet transactions
-CREATE TABLE ewallet_transactions (
+DROP TABLE IF EXISTS ewallet_transactions;
+
+CREATE TABLE IF NOT EXISTS ewallet_transactions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     type ENUM(
@@ -87,12 +112,16 @@ CREATE TABLE ewallet_transactions (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- Withdrawal requests
-CREATE TABLE withdrawal_requests (
+-- ===================================================
+-- REQUESTS SYSTEM
+-- ===================================================
+
+DROP TABLE IF EXISTS withdrawal_requests;
+
+CREATE TABLE IF NOT EXISTS withdrawal_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     amount DECIMAL(15, 2) NOT NULL,
-    usdt_amount DECIMAL(15, 8) NOT NULL,
     wallet_address VARCHAR(255) NOT NULL,
     status ENUM(
         'pending',
@@ -106,11 +135,13 @@ CREATE TABLE withdrawal_requests (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- Refill requests
-CREATE TABLE refill_requests (
+DROP TABLE IF EXISTS refill_requests;
+
+CREATE TABLE IF NOT EXISTS refill_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     amount DECIMAL(15, 2) NOT NULL,
+    transaction_hash VARCHAR(255) NULL,
     status ENUM(
         'pending',
         'approved',
@@ -122,8 +153,13 @@ CREATE TABLE refill_requests (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- Monthly bonuses tracking
-CREATE TABLE monthly_bonuses (
+-- ===================================================
+-- BONUS SYSTEM
+-- ===================================================
+
+DROP TABLE IF EXISTS monthly_bonuses;
+
+CREATE TABLE IF NOT EXISTS monthly_bonuses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     package_id INT NOT NULL,
@@ -134,7 +170,7 @@ CREATE TABLE monthly_bonuses (
         'pending',
         'paid',
         'withdrawn'
-    ) DEFAULT 'pending',
+    ) DEFAULT 'paid',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     paid_at TIMESTAMP NULL,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
@@ -142,7 +178,8 @@ CREATE TABLE monthly_bonuses (
     FOREIGN KEY (user_package_id) REFERENCES user_packages (id) ON DELETE CASCADE
 );
 
--- Referral bonuses
+DROP TABLE IF EXISTS referral_bonuses;
+
 CREATE TABLE IF NOT EXISTS referral_bonuses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -157,8 +194,13 @@ CREATE TABLE IF NOT EXISTS referral_bonuses (
     FOREIGN KEY (package_id) REFERENCES packages (id) ON DELETE CASCADE
 );
 
--- Admin settings
-CREATE TABLE admin_settings (
+-- ===================================================
+-- ADMIN SYSTEM
+-- ===================================================
+
+DROP TABLE IF EXISTS admin_settings;
+
+CREATE TABLE IF NOT EXISTS admin_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     setting_name VARCHAR(100) UNIQUE NOT NULL,
     setting_value TEXT NOT NULL,
@@ -166,15 +208,54 @@ CREATE TABLE admin_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- ===================================================
+-- DEFAULT DATA
+-- ===================================================
+
 -- Insert default packages
 INSERT INTO
-    packages (name, price)
-VALUES ('Starter Plan', 20.00),
-    ('Bronze Plan', 100.00),
-    ('Silver Plan', 500.00),
-    ('Gold Plan', 1000.00),
-    ('Platinum Plan', 2000.00),
-    ('Diamond Plan', 10000.00);
+    packages (
+        name,
+        price,
+        description,
+        features
+    )
+VALUES (
+        'Starter Plan',
+        20.00,
+        'Perfect for beginners to start earning',
+        '• 20 USDT minimum\n• 50% monthly bonus\n• 3-month cycle\n• Referral bonuses'
+    ),
+    (
+        'Bronze Plan',
+        100.00,
+        'Good starting investment',
+        '• 100 USDT package\n• 50% monthly bonus\n• 3-month cycle\n• Multi-level referrals'
+    ),
+    (
+        'Silver Plan',
+        500.00,
+        'Balanced investment option',
+        '• 500 USDT package\n• 50% monthly bonus\n• 3-month cycle\n• Advanced features'
+    ),
+    (
+        'Gold Plan',
+        1000.00,
+        'Premium investment package',
+        '• 1000 USDT package\n• 50% monthly bonus\n• 3-month cycle\n• Priority support'
+    ),
+    (
+        'Platinum Plan',
+        2000.00,
+        'High-value investment',
+        '• 2000 USDT package\n• 50% monthly bonus\n• 3-month cycle\n• VIP features'
+    ),
+    (
+        'Diamond Plan',
+        10000.00,
+        'Ultimate investment',
+        '• 10000 USDT package\n• 50% monthly bonus\n• 3-month cycle\n• Exclusive benefits'
+    );
 
 -- Insert default admin settings
 INSERT INTO
@@ -210,7 +291,7 @@ VALUES (
     ),
     (
         'admin_usdt_wallet',
-        'TXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxx',
+        'TAdminUSDTWalletAddressHere12345',
         'Admin USDT wallet address for refills'
     ),
     (
@@ -247,31 +328,5 @@ VALUES (
 -- Create ewallet for admin user
 INSERT INTO ewallet (user_id, balance) VALUES (1, 0.00);
 
--- Ensure packages table has all required columns
-ALTER TABLE packages
-ADD COLUMN description TEXT NULL AFTER price,
-ADD COLUMN features TEXT NULL AFTER description,
-ADD COLUMN order_index INT DEFAULT 0 AFTER features;
-
--- Add package images support
-ALTER TABLE packages
-ADD COLUMN image_path VARCHAR(255) NULL AFTER features;
-
--- Update packages table to include referral tracking
-ALTER TABLE packages
-ADD COLUMN IF NOT EXISTS referral_bonus_enabled TINYINT(1) DEFAULT 1;
-
--- Add transaction_hash to refill_requests
-ALTER TABLE refill_requests
-ADD COLUMN transaction_hash VARCHAR(255) NULL AFTER amount;
-
--- Update existing packages with descriptions
--- UPDATE packages SET
---   description = 'Perfect for beginners to start earning',
---   features = '• 20 USDT minimum\n• 50% monthly bonus\n• 3-month cycle\n• Referral bonuses',
---   order_index = 1
--- WHERE name = 'Starter Plan';
-
--- Repeat for other packages...
-
--- TRUNCATE TABLE packages;
+-- Reset complete message
+SELECT 'Database reset complete for OjoTokenMining' AS status;

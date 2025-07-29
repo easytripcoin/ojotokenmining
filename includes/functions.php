@@ -225,44 +225,44 @@ function purchasePackage($user_id, $package_id)
     }
 }
 
-/**
- * Process referral bonuses for a package purchase
- * @param int $user_id User ID who made the purchase
- * @param float $package_price Package price
- * @param int $package_id Package ID
- */
-function processReferralBonuses($user_id, $package_price, $package_id)
-{
-    try {
-        $pdo = getConnection();
+// /**
+//  * Process referral bonuses for a package purchase
+//  * @param int $user_id User ID who made the purchase
+//  * @param float $package_price Package price
+//  * @param int $package_id Package ID
+//  */
+// function processReferralBonuses($user_id, $package_price, $package_id)
+// {
+//     try {
+//         $pdo = getConnection();
 
-        // Get user's sponsor chain
-        $sponsor_chain = getSponsorChain($user_id, 5); // Get up to 5 levels
+//         // Get user's sponsor chain
+//         $sponsor_chain = getSponsorChain($user_id, 5); // Get up to 5 levels
 
-        foreach ($sponsor_chain as $level => $sponsor_id) {
-            if (isset(REFERRAL_BONUSES[$level])) {
-                $percentage = REFERRAL_BONUSES[$level];
-                $bonus_amount = ($package_price * $percentage) / 100;
+//         foreach ($sponsor_chain as $level => $sponsor_id) {
+//             if (isset(REFERRAL_BONUSES[$level])) {
+//                 $percentage = REFERRAL_BONUSES[$level];
+//                 $bonus_amount = ($package_price * $percentage) / 100;
 
-                // Add referral bonus to sponsor's ewallet
-                processEwalletTransaction(
-                    $sponsor_id,
-                    'referral',
-                    $bonus_amount,
-                    "Level $level referral bonus from user ID: $user_id",
-                    $user_id
-                );
+//                 // Add referral bonus to sponsor's ewallet
+//                 processEwalletTransaction(
+//                     $sponsor_id,
+//                     'referral',
+//                     $bonus_amount,
+//                     "Level $level referral bonus from user ID: $user_id",
+//                     $user_id
+//                 );
 
-                // Record referral bonus
-                $stmt = $pdo->prepare("INSERT INTO referral_bonuses (user_id, referred_user_id, level, amount, percentage, package_id) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$sponsor_id, $user_id, $level, $bonus_amount, $percentage, $package_id]);
-            }
-        }
+//                 // Record referral bonus
+//                 $stmt = $pdo->prepare("INSERT INTO referral_bonuses (user_id, referred_user_id, level, amount, percentage, package_id) VALUES (?, ?, ?, ?, ?, ?)");
+//                 $stmt->execute([$sponsor_id, $user_id, $level, $bonus_amount, $percentage, $package_id]);
+//             }
+//         }
 
-    } catch (Exception $e) {
-        logEvent("Process referral bonuses error: " . $e->getMessage(), 'error');
-    }
-}
+//     } catch (Exception $e) {
+//         logEvent("Process referral bonuses error: " . $e->getMessage(), 'error');
+//     }
+// }
 
 /**
  * Get sponsor chain for a user
@@ -696,6 +696,186 @@ function processWithdrawRemine($user_id, $package_id, $action)
             $pdo->rollBack();
         logEvent("Withdraw/remine error: " . $e->getMessage(), 'error');
         return ['success' => false, 'message' => 'Processing failed'];
+    }
+}
+
+/**
+ * Get user's referral tree with levels
+ * @param int $user_id User ID
+ * @param int $max_levels Maximum levels to retrieve
+ * @return array Referral tree
+ */
+function getUserReferralTree($user_id, $max_levels = 5)
+{
+    try {
+        $pdo = getConnection();
+        $tree = [];
+
+        function buildReferralTree($pdo, $sponsor_id, $level = 1, $max_levels = 5)
+        {
+            if ($level > $max_levels)
+                return [];
+
+            $stmt = $pdo->prepare("
+                SELECT id, username, email, created_at
+                FROM users
+                WHERE sponsor_id = ? AND status = 'active'
+                ORDER BY created_at ASC
+            ");
+            $stmt->execute([$sponsor_id]);
+            $referrals = $stmt->fetchAll();
+
+            foreach ($referrals as &$ref) {
+                $ref['level'] = $level;
+                $ref['children'] = buildReferralTree($pdo, $ref['id'], $level + 1, $max_levels);
+                $ref['total_bonus'] = getUserReferralBonus($ref['id']);
+            }
+
+            return $referrals;
+        }
+
+        return buildReferralTree($pdo, $user_id);
+
+    } catch (Exception $e) {
+        logEvent("Get referral tree error: " . $e->getMessage(), 'error');
+        return [];
+    }
+}
+
+/**
+ * Get user's referral statistics
+ * @param int $user_id User ID
+ * @return array Referral stats
+ */
+function getUserReferralStats($user_id)
+{
+    try {
+        $pdo = getConnection();
+
+        // Get total referrals by level
+        $stats = [
+            'total_referrals' => 0,
+            'level_stats' => [
+                2 => ['count' => 0, 'bonus' => 0],
+                3 => ['count' => 0, 'bonus' => 0],
+                4 => ['count' => 0, 'bonus' => 0],
+                5 => ['count' => 0, 'bonus' => 0]
+            ]
+        ];
+
+        // Get counts
+        $stmt = $pdo->prepare("
+            SELECT level, COUNT(*) as count, SUM(amount) as total_bonus
+            FROM referral_bonuses
+            WHERE user_id = ?
+            GROUP BY level
+        ");
+        $stmt->execute([$user_id]);
+
+        while ($row = $stmt->fetch()) {
+            if ($row['level'] >= 2 && $row['level'] <= 5) {
+                $stats['level_stats'][$row['level']] = [
+                    'count' => $row['count'],
+                    'bonus' => $row['total_bonus']
+                ];
+                $stats['total_referrals'] += $row['count'];
+            }
+        }
+
+        return $stats;
+
+    } catch (Exception $e) {
+        logEvent("Get referral stats error: " . $e->getMessage(), 'error');
+        return [];
+    }
+}
+
+/**
+ * Get referral bonus for a user
+ * @param int $user_id User ID
+ * @return float Total bonus
+ */
+function getUserReferralBonus($user_id)
+{
+    try {
+        $pdo = getConnection();
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(amount), 0) as total_bonus
+            FROM referral_bonuses
+            WHERE user_id = ?
+        ");
+        $stmt->execute([$user_id]);
+        return $stmt->fetchColumn();
+
+    } catch (Exception $e) {
+        logEvent("Get referral bonus error: " . $e->getMessage(), 'error');
+        return 0;
+    }
+}
+
+/**
+ * Process referral bonuses for a purchase
+ * @param int $buyer_id User who made purchase
+ * @param float $amount Package price
+ * @param int $package_id Package ID
+ */
+function processReferralBonuses($buyer_id, $amount, $package_id)
+{
+    try {
+        $pdo = getConnection();
+
+        // Get sponsor chain
+        $sponsor_chain = [];
+        $current_id = $buyer_id;
+        $level = 2;
+
+        while ($level <= 5 && $current_id) {
+            $stmt = $pdo->prepare("SELECT sponsor_id FROM users WHERE id = ?");
+            $stmt->execute([$current_id]);
+            $sponsor_id = $stmt->fetchColumn();
+
+            if ($sponsor_id) {
+                $sponsor_chain[$level] = $sponsor_id;
+                $current_id = $sponsor_id;
+                $level++;
+            } else {
+                break;
+            }
+        }
+
+        // Process bonuses
+        foreach ($sponsor_chain as $level => $sponsor_id) {
+            if (isset(REFERRAL_BONUSES[$level])) {
+                $percentage = REFERRAL_BONUSES[$level];
+                $bonus_amount = ($amount * $percentage) / 100;
+
+                // Add referral bonus
+                $stmt = $pdo->prepare("
+                    INSERT INTO referral_bonuses (user_id, referred_user_id, level, amount, percentage, package_id) 
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $sponsor_id,
+                    $buyer_id,
+                    $level,
+                    $bonus_amount,
+                    $percentage,
+                    $package_id
+                ]);
+
+                // Add to sponsor's ewallet
+                processEwalletTransaction(
+                    $sponsor_id,
+                    'referral',
+                    $bonus_amount,
+                    "Level $level referral bonus from user ID: $buyer_id",
+                    $buyer_id
+                );
+            }
+        }
+
+    } catch (Exception $e) {
+        logEvent("Process referral bonuses error: " . $e->getMessage(), 'error');
     }
 }
 
