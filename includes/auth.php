@@ -243,42 +243,42 @@ function updateUserProfile($user_id, $data)
     }
 }
 
-/**
- * Get user's referral tree
- * @param int $user_id User ID
- * @param int $max_levels Maximum levels to retrieve
- * @return array Referral tree
- */
-function getUserReferralTree($user_id, $max_levels = 5)
-{
-    try {
-        $pdo = getConnection();
-        $tree = [];
+// /**
+//  * Get user's referral tree
+//  * @param int $user_id User ID
+//  * @param int $max_levels Maximum levels to retrieve
+//  * @return array Referral tree
+//  */
+// function getUserReferralTree($user_id, $max_levels = 5)
+// {
+//     try {
+//         $pdo = getConnection();
+//         $tree = [];
 
-        function getReferrals($pdo, $sponsor_id, $level = 1, $max_levels = 5)
-        {
-            if ($level > $max_levels)
-                return [];
+//         function getReferrals($pdo, $sponsor_id, $level = 1, $max_levels = 5)
+//         {
+//             if ($level > $max_levels)
+//                 return [];
 
-            $stmt = $pdo->prepare("SELECT id, username, email, created_at FROM users WHERE sponsor_id = ? AND status = 'active'");
-            $stmt->execute([$sponsor_id]);
-            $referrals = $stmt->fetchAll();
+//             $stmt = $pdo->prepare("SELECT id, username, email, created_at FROM users WHERE sponsor_id = ? AND status = 'active'");
+//             $stmt->execute([$sponsor_id]);
+//             $referrals = $stmt->fetchAll();
 
-            foreach ($referrals as &$referral) {
-                $referral['level'] = $level;
-                $referral['children'] = getReferrals($pdo, $referral['id'], $level + 1, $max_levels);
-            }
+//             foreach ($referrals as &$referral) {
+//                 $referral['level'] = $level;
+//                 $referral['children'] = getReferrals($pdo, $referral['id'], $level + 1, $max_levels);
+//             }
 
-            return $referrals;
-        }
+//             return $referrals;
+//         }
 
-        return getReferrals($pdo, $user_id, 1, $max_levels);
+//         return getReferrals($pdo, $user_id, 1, $max_levels);
 
-    } catch (Exception $e) {
-        logEvent("Get referral tree error: " . $e->getMessage(), 'error');
-        return [];
-    }
-}
+//     } catch (Exception $e) {
+//         logEvent("Get referral tree error: " . $e->getMessage(), 'error');
+//         return [];
+//     }
+// }
 
 /**
  * Get user statistics
