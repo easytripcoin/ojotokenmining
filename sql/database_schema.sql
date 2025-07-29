@@ -275,3 +275,7 @@ ADD COLUMN transaction_hash VARCHAR(255) NULL AFTER amount;
 -- Repeat for other packages...
 
 -- TRUNCATE TABLE packages;
+
+-- SELECT * FROM users WHERE sponsor_id = 2;
+
+-- SELECT * FROM referral_bonuses WHERE user_id = 2;

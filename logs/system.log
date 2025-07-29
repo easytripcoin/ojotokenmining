@@ -48,3 +48,14 @@
 [2025-07-29 08:21:52] [info] User login successful: test2
 [2025-07-29 08:29:13] [info] Package purchased: User 3 bought package 5
 [2025-07-29 09:34:52] [info] User login successful: admin
+[2025-07-29 10:25:11] [info] User registration sponsor assignment: test1 -> No sponsor specified. Assigned to admin as default sponsor.
+[2025-07-29 10:25:11] [info] New user registered: test1
+[2025-07-29 10:25:25] [info] User login successful: test1
+[2025-07-29 10:26:46] [info] User registration sponsor assignment: test2 -> Sponsor assigned: test1
+[2025-07-29 10:26:46] [info] New user registered: test2
+[2025-07-29 10:28:18] [info] Package purchased: User 2 bought package 6
+[2025-07-29 10:28:54] [info] User login successful: test2
+[2025-07-29 10:29:45] [info] Package purchased: User 3 bought package 6
+[2025-07-29 10:44:32] [info] User logout: test1
+[2025-07-29 10:44:42] [info] User login successful: test1
+[2025-07-29 13:13:42] [info] User login successful: test1
