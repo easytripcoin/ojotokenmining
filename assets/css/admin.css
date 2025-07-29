@@ -105,6 +105,20 @@ body {
     font-weight: bold;
 }
 
+/* Match withdrawals button styling */
+.btn-group-sm .btn-sm,
+.d-flex.gap-1 .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
+
+/* Ensure consistent spacing */
+.d-flex.gap-1 {
+    gap: 0.25rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar {

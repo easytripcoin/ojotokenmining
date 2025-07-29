@@ -173,20 +173,24 @@ try {
                                             <td><?= $user['active_packages'] ?></td>
                                             <td><?= timeAgo($user['created_at']) ?></td>
                                             <td>
-                                                <div class="btn-group btn-group-sm">
-                                                    <a href="user_details.php?id=<?= $user['id'] ?>" class="btn btn-info"
-                                                        title="View">
+                                                <div class="d-flex gap-1">
+                                                    <!-- View Button - Exact styling from withdrawals -->
+                                                    <a href="user_details.php?id=<?= $user['id'] ?>" class="btn btn-sm btn-info"
+                                                        title="View Details">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    <form method="POST" action="update_user_status.php"
-                                                        style="display: inline-block;">
+
+                                                    <!-- Toggle Button - Exact styling from withdrawals -->
+                                                    <form method="POST" action="update_user_status.php" class="d-inline">
                                                         <input type="hidden" name="csrf_token"
                                                             value="<?= generateCSRFToken() ?>">
                                                         <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
                                                         <input type="hidden" name="status"
                                                             value="<?= $user['status'] === 'active' ? 'suspended' : 'active' ?>">
-                                                        <button type="submit" class="btn btn-warning" title="Toggle Status">
-                                                            <i class="fas fa-toggle-on"></i>
+                                                        <button type="submit" class="btn btn-sm btn-warning"
+                                                            title="Toggle Status">
+                                                            <i
+                                                                class="fas fa-toggle-<?= $user['status'] === 'active' ? 'on' : 'off' ?>"></i>
                                                         </button>
                                                     </form>
                                                 </div>

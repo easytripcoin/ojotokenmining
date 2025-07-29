@@ -109,7 +109,8 @@ try {
                         </div>
                         <div class="card-body">
                             <?php if ($pending_withdrawals > 0): ?>
-                                <a href="withdrawals.php" class="btn btn-warning">View <?= $pending_withdrawals ?> pending
+                                <a href="withdrawals.php?status=pending" class="btn btn-warning">View
+                                    <?= $pending_withdrawals ?> pending
                                     withdrawals</a>
                             <?php else: ?>
                                 <p class="text-muted">No pending withdrawals</p>
@@ -124,7 +125,8 @@ try {
                         </div>
                         <div class="card-body">
                             <?php if ($pending_refills > 0): ?>
-                                <a href="refills.php" class="btn btn-info">View <?= $pending_refills ?> pending refills</a>
+                                <a href="refills.php?status=pending" class="btn btn-info">View <?= $pending_refills ?>
+                                    pending refills</a>
                             <?php else: ?>
                                 <p class="text-muted">No pending refills</p>
                             <?php endif; ?>
@@ -182,7 +184,7 @@ try {
                                             <tr>
                                                 <td><?= htmlspecialchars($tx['username']) ?></td>
                                                 <td class="<?= $tx['amount'] > 0 ? 'text-success' : 'text-danger' ?>">
-                                                    <?= $tx['amount'] > 0 ? '+' : '' ?>    <?= formatCurrency($tx['amount']) ?>
+                                                    <?= $tx['amount'] > 0 ? '+' : '' ?>     <?= formatCurrency($tx['amount']) ?>
                                                 </td>
                                                 <td><?= ucfirst($tx['type']) ?></td>
                                             </tr>

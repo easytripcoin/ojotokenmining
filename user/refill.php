@@ -1,5 +1,5 @@
 <?php
-// user/refill.php
+// user/refill.php - Pending approval system
 require_once '../config/config.php';
 require_once '../config/session.php';
 require_once '../includes/auth.php';
@@ -30,35 +30,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             try {
                 $pdo = getConnection();
+                $pdo->beginTransaction();
 
-                // Insert refill request
+                // 1. Create refill request (pending approval)
                 $stmt = $pdo->prepare("
                     INSERT INTO refill_requests (user_id, amount, transaction_hash) 
                     VALUES (?, ?, ?)
                 ");
                 $stmt->execute([$user_id, $amount, $transaction_hash]);
-
                 $refill_id = $pdo->lastInsertId();
 
-                // 2. Use processEwalletTransaction for pending deposit
-                if (
-                    processEwalletTransaction(
-                        $user_id,
-                        'deposit',
-                        $amount,
-                        'USDT refill pending approval',
-                        $refill_id
-                    )
-                ) {
-                    $success = 'Refill request submitted successfully. Your account will be credited once confirmed.';
-                } else {
-                    // Rollback refill request if ewallet transaction fails
-                    $pdo->prepare("DELETE FROM refill_requests WHERE id = ?")->execute([$refill_id]);
-                    $errors['general'] = 'Failed to process refill request.';
-                }
+                // 2. Add pending transaction (no balance change yet)
+                $stmt = $pdo->prepare("
+                    INSERT INTO ewallet_transactions (user_id, type, amount, description, reference_id, status) 
+                    VALUES (?, 'deposit', ?, 'USDT refill pending approval', ?, 'pending')
+                ");
+                $stmt->execute([$user_id, $amount, $refill_id]);
+
+                $pdo->commit();
+                $success = 'Refill request submitted successfully. Your account will be credited once admin approves.';
+
             } catch (Exception $e) {
+                if (isset($pdo))
+                    $pdo->rollBack();
                 $errors['general'] = 'Failed to submit refill request. Please try again.';
-                // $errors['general'] = $e->getMessage();
             }
         } else {
             $errors = $validation['errors'];
@@ -112,18 +107,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div class="alert alert-danger"><?= htmlspecialchars($errors['general']) ?></div>
                             <?php endif; ?>
 
-                            <?php
-                            // if (isset($errors['general'])) {
-                            //     // Debug information
-                            //     echo "<pre>";
-                            //     echo "Refill attempt failed\n";
-                            //     echo "CSRF Status: " . (!verifyCSRFToken($_POST['csrf_token'] ?? '') ? 'INVALID' : 'VALID') . "\n";
-                            //     echo "Amount: " . htmlspecialchars($_POST['amount']) . "\n";
-                            //     echo "Transaction Hash: " . htmlspecialchars($_POST['transaction_hash']) . "\n";
-                            //     echo "</pre>";
-                            // }
-                            ?>
-
                             <form method="POST" action="">
                                 <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
 
@@ -162,13 +145,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="alert alert-info">
                                 <h6>Send USDT (TRC20) to:</h6>
                                 <div class="bg-light p-3 rounded">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control"
-                                            value="<?= htmlspecialchars($admin_wallet) ?>" readonly id="walletAddress">
-                                        <button class="btn btn-outline-primary" type="button" onclick="selectAndCopy()">
-                                            <i class="fas fa-copy"></i> Copy
-                                        </button>
-                                    </div>
+                                    <code class="fw-bold"><?= htmlspecialchars($admin_wallet) ?></code>
+                                    <button class="btn btn-sm btn-outline-primary float-end"
+                                        onclick="copyToClipboard('<?= htmlspecialchars($admin_wallet) ?>')">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
                                 </div>
                             </div>
 
@@ -180,6 +161,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <li><i class="fas fa-check text-success me-2"></i> Processing time: 1-6 hours</li>
                                 <li><i class="fas fa-check text-success me-2"></i> No refill fees</li>
                             </ol>
+
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                <strong>Important:</strong> Funds will be added to your e-wallet only after admin
+                                approval.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -189,17 +176,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function selectAndCopy() {
-            const input = document.getElementById('walletAddress');
-            input.select();
-            input.setSelectionRange(0, 99999);
-
-            try {
-                document.execCommand('copy');
-                alert('Wallet address copied!');
-            } catch (err) {
-                prompt('Copy this address:', input.value);
-            }
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Wallet address copied to clipboard!');
+            });
         }
     </script>
 </body>
