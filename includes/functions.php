@@ -879,4 +879,116 @@ function processReferralBonuses($buyer_id, $amount, $package_id)
     }
 }
 
+/* Add these functions to includes/functions.php */
+
+// /**
+//  * Update user profile
+//  * @param int $user_id User ID
+//  * @param array $data Profile data
+//  * @return bool Success
+//  */
+// function updateUserProfile($user_id, $data)
+// {
+//     try {
+//         $pdo = getConnection();
+//         $fields = [];
+//         $values = [];
+
+//         foreach ($data as $key => $value) {
+//             $fields[] = "$key = ?";
+//             $values[] = $value;
+//         }
+//         $values[] = $user_id;
+
+//         $stmt = $pdo->prepare("UPDATE users SET " . implode(', ', $fields) . " WHERE id = ?");
+//         return $stmt->execute($values);
+//     } catch (Exception $e) {
+//         logEvent("Update profile error: " . $e->getMessage(), 'error');
+//         return false;
+//     }
+// }
+
+// /**
+//  * Update user password
+//  * @param int $user_id User ID
+//  * @param string $hashed_password New hashed password
+//  * @return bool Success
+//  */
+// function updateUserPassword($user_id, $hashed_password)
+// {
+//     try {
+//         $pdo = getConnection();
+//         $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+//         return $stmt->execute([$hashed_password, $user_id]);
+//     } catch (Exception $e) {
+//         logEvent("Update password error: " . $e->getMessage(), 'error');
+//         return false;
+//     }
+// }
+
+/**
+ * Generate identicon avatar from username
+ * @param string $username Username to generate identicon for
+ * @return string Base64 data URL of identicon
+ */
+function generateIdenticon($username)
+{
+    // Simple deterministic hash from username
+    $hash = 0;
+    for ($i = 0; $i < strlen($username); $i++) {
+        $hash = $username[$i] . (($hash << 5) - $hash);
+    }
+
+    // Create canvas
+    $canvas = imagecreatetruecolor(50, 50);
+
+    // Background
+    $bg = imagecolorallocate($canvas, 255, 255, 255);
+    imagefill($canvas, 0, 0, $bg);
+
+    // Color from hash
+    $hue = abs($hash) % 360;
+    $color = imagecolorallocate(
+        $canvas,
+        ($hue * 2) % 255,
+        ($hue * 3) % 255,
+        ($hue * 5) % 255
+    );
+
+    // 5x5 symmetric pattern
+    $grid = 5;
+    $cell = 10;
+    for ($x = 0; $x < 5; $x++) {
+        for ($y = 0; $y < 5; $y++) {
+            if ((abs($hash) >> ($x * 5 + $y)) & 1) {
+                // Mirror for symmetry
+                imagefilledrectangle(
+                    $canvas,
+                    $x * $cell,
+                    $y * $cell,
+                    $x * $cell + $cell - 1,
+                    $y * $cell + $cell - 1,
+                    $color
+                );
+                imagefilledrectangle(
+                    $canvas,
+                    (4 - $x) * $cell,
+                    $y * $cell,
+                    (4 - $x) * $cell + $cell - 1,
+                    $y * $cell + $cell - 1,
+                    $color
+                );
+            }
+        }
+    }
+
+    // Convert to base64
+    ob_start();
+    imagepng($canvas);
+    $data = ob_get_clean();
+    imagedestroy($canvas);
+
+    return 'data:image/png;base64,' . base64_encode($data);
+}
+
 ?>
