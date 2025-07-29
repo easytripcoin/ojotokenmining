@@ -37,3 +37,13 @@
 [2025-07-29 02:40:17] [info] User logout: admin
 [2025-07-29 02:40:41] [info] User login successful: admin
 [2025-07-29 03:20:32] [info] User login successful: test1
+[2025-07-29 06:26:41] [info] User login successful: test1
+[2025-07-29 08:16:37] [info] User login successful: test1
+[2025-07-29 08:17:06] [info] Package purchased: User 2 bought package 5
+[2025-07-29 08:17:52] [info] User login successful: admin
+[2025-07-29 08:20:55] [info] User registration sponsor assignment: test2 -> Sponsor assigned: test1
+[2025-07-29 08:20:55] [info] New user registered: test2
+[2025-07-29 08:21:34] [info] User registration sponsor assignment: test3 -> Sponsor assigned: test2
+[2025-07-29 08:21:34] [info] New user registered: test3
+[2025-07-29 08:21:52] [info] User login successful: test2
+[2025-07-29 08:29:13] [info] Package purchased: User 3 bought package 5

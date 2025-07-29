@@ -581,4 +581,122 @@ function getUserRefillRequests($user_id)
     }
 }
 
+/**
+ * Get user's monthly bonus history
+ * @param int $user_id User ID
+ * @return array Bonus history
+ */
+function getUserMonthlyBonuses($user_id)
+{
+    try {
+        $pdo = getConnection();
+        $stmt = $pdo->prepare("
+            SELECT mb.*, p.name as package_name, p.price
+            FROM monthly_bonuses mb
+            JOIN packages p ON mb.package_id = p.id
+            WHERE mb.user_id = ?
+            ORDER BY mb.created_at DESC
+        ");
+        $stmt->execute([$user_id]);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        logEvent("Get user bonuses error: " . $e->getMessage(), 'error');
+        return [];
+    }
+}
+
+/**
+ * Check if package is eligible for withdraw/remine
+ * @param int $package_id Package ID
+ * @return bool Eligible status
+ */
+function isPackageEligibleForWithdrawRemine($package_id)
+{
+    try {
+        $pdo = getConnection();
+        $stmt = $pdo->prepare("
+            SELECT * FROM user_packages 
+            WHERE id = ? AND current_cycle > ? AND status = 'active'
+        ");
+        $stmt->execute([$package_id, BONUS_MONTHS]);
+        return $stmt->fetch() !== false;
+    } catch (Exception $e) {
+        logEvent("Check withdraw eligibility error: " . $e->getMessage(), 'error');
+        return false;
+    }
+}
+
+/**
+ * Process withdraw/remine for completed package
+ * @param int $user_id User ID
+ * @param int $package_id Package ID
+ * @param string $action 'withdraw' or 'remine'
+ * @return array Result
+ */
+function processWithdrawRemine($user_id, $package_id, $action)
+{
+    try {
+        $pdo = getConnection();
+        $pdo->beginTransaction();
+
+        // Get package details
+        $stmt = $pdo->prepare("
+            SELECT up.*, p.price, p.name
+            FROM user_packages up
+            JOIN packages p ON up.package_id = p.id
+            WHERE up.id = ? AND up.user_id = ? AND up.status = 'active'
+            AND up.current_cycle > ?
+        ");
+        $stmt->execute([$package_id, $user_id, BONUS_MONTHS]);
+        $package = $stmt->fetch();
+
+        if (!$package) {
+            return ['success' => false, 'message' => 'Package not eligible for withdraw/remine'];
+        }
+
+        if ($action === 'withdraw') {
+            // Return original package price
+            processEwalletTransaction(
+                $user_id,
+                'refund',
+                $package['price'],
+                "Withdraw completed package: {$package['name']}",
+                $package['id']
+            );
+
+            // Mark package as withdrawn
+            $stmt = $pdo->prepare("UPDATE user_packages SET status = 'withdrawn' WHERE id = ?");
+            $stmt->execute([$package_id]);
+
+        } elseif ($action === 'remine') {
+            // Reset for new cycle
+            $stmt = $pdo->prepare("
+                UPDATE user_packages 
+                SET current_cycle = 1, status = 'active' 
+                WHERE id = ?
+            ");
+            $stmt->execute([$package_id]);
+
+            // Deduct from ewallet for new purchase
+            if (processEwalletTransaction($user_id, 'purchase', -$package['price'], "Remine package: {$package['name']}", $package['id'])) {
+                // Start new cycle
+                $stmt = $pdo->prepare("
+                    INSERT INTO user_packages (user_id, package_id, current_cycle, total_cycles) 
+                    VALUES (?, ?, 1, ?)
+                ");
+                $stmt->execute([$user_id, $package['package_id'], BONUS_MONTHS]);
+            }
+        }
+
+        $pdo->commit();
+        return ['success' => true, 'message' => ucfirst($action) . ' processed successfully'];
+
+    } catch (Exception $e) {
+        if (isset($pdo))
+            $pdo->rollBack();
+        logEvent("Withdraw/remine error: " . $e->getMessage(), 'error');
+        return ['success' => false, 'message' => 'Processing failed'];
+    }
+}
+
 ?>
