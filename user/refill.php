@@ -82,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
             <li><a href="packages.php"><i class="fas fa-box"></i> Packages</a></li>
             <li class="active"><a href="ewallet.php"><i class="fas fa-wallet"></i> E-Wallet</a></li>
+            <li><a href="referrals.php"><i class="fas fa-users"></i> My Referrals</a></li>
             <li><a href="genealogy.php"><i class="fas fa-sitemap"></i> Genealogy</a></li>
             <li><a href="profile.php"><i class="fas fa-user"></i> Profile</a></li>
             <li><a href="../logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
