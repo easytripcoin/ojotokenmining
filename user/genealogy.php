@@ -84,15 +84,6 @@ function buildHierarchicalTree($downline, $rootUserId, $rootUser)
     // Build the tree structure
     function buildTreeRecursive($parentId, $userMap, $downline)
     {
-        $levelColors = [
-            0 => '#ff6b6b',
-            1 => '#4ecdc4',
-            2 => '#45b7d1',
-            3 => '#96ceb4',
-            4 => '#feca57',
-            5 => '#ff9ff3'
-        ];
-
         $parent = $userMap[$parentId];
         $level = $parent['level'];
 
@@ -107,8 +98,8 @@ function buildHierarchicalTree($downline, $rootUserId, $rootUser)
                 'isRoot' => $level == 0
             ],
             'options' => [
-                'nodeBGColor' => $levelColors[$level] ?? '#a8e6cf',
-                'nodeBGColorHover' => $levelColors[$level] ?? '#a8e6cf'
+                'nodeBGColor' => '#ff6b6b',
+                'nodeBGColorHover' => '#ff5252'
             ],
             'children' => []
         ];
@@ -180,47 +171,123 @@ try {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/admin.css" rel="stylesheet">
     <style>
+        /* === Container & Controls === */
         #genealogy-container {
+            position: relative;
             background: #f8f9fa;
             border-radius: 8px;
             padding: 20px;
             min-height: 600px;
             overflow: hidden;
-            position: relative;
+            width: 100%;
+            height: 100%;
         }
 
         #genealogy-tree {
             width: 100%;
-            height: 600px;
+            height: 100%;
             position: relative;
         }
 
-        .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .tree-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            display: flex;
+            gap: 6px;
+        }
+
+        .tree-btn {
+            width: 34px;
+            height: 34px;
             border: none;
-            transition: transform 0.3s ease;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .9);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+            cursor: pointer;
+            transition: transform .2s;
         }
 
-        .stats-card:hover {
-            transform: translateY(-5px);
+        .tree-btn:hover {
+            transform: scale(1.15);
         }
 
-        .earnings-card {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-            border: none;
-            transition: transform 0.3s ease;
+        /* === NODE === */
+        .tree-node {
+            position: absolute;
+            width: 120px;
+            padding: 8px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 12px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+            transition: transform .2s;
+            cursor: default;
         }
 
-        .earnings-card:hover {
-            transform: translateY(-5px);
+        .tree-node .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin: 0 auto 4px;
+            background: #fff3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
         }
 
-        .loading-spinner {
-            color: #667eea;
+        .tree-node .level-badge {
+            font-size: 8px;
+            background: rgba(255, 255, 255, .25);
+            padding: 1px 4px;
+            border-radius: 6px;
+            margin-top: 2px;
         }
 
+        .tree-node .bonus {
+            font-size: 10px;
+            font-weight: bold;
+            color: #ffd700;
+            margin-top: 1px;
+        }
+
+        .tree-node .toggle {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 12px;
+            /* Reduced width */
+            height: 12px;
+            /* Reduced height */
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .25);
+            font-size: 8px;
+            /* Reduced font size */
+            line-height: 12px;
+            /* Adjusted line height */
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .tree-node.hidden-children .children {
+            display: none;
+        }
+
+        /* === CONNECTION LINES === */
+        .tree-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        /* === LEGEND (unchanged) === */
         .tree-legend {
             display: flex;
             gap: 10px;
@@ -233,11 +300,11 @@ try {
             align-items: center;
             gap: 5px;
             padding: 5px 10px;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, .9);
             border-radius: 20px;
             font-size: 12px;
             font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
         }
 
         .legend-circle {
@@ -246,104 +313,12 @@ try {
             border-radius: 50%;
         }
 
-        .tree-controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            display: flex;
-            gap: 5px;
+        #genealogy-tree {
+            cursor: grab;
         }
 
-        .tree-btn {
-            background: rgba(255, 255, 255, 0.9);
-            border: none;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .tree-btn:hover {
-            background: white;
-            transform: scale(1.1);
-        }
-
-        /* Custom avatar styling for ApexTree nodes */
-        .avatar-canvas {
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            object-fit: cover;
-            border: 2px solid #fff;
-            box-sizing: border-box;
-        }
-
-        /* ApexTree canvas styling */
-        .apex-tree-canvas {
-            border: 1px solid #ddd !important;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-            border-radius: 8px;
-        }
-
-        /* Fallback tree styles for when ApexTree fails */
-        .fallback-tree {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 40px;
-        }
-
-        .tree-node {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            margin: 10px;
-            text-align: center;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            min-width: 180px;
-        }
-
-        .tree-level {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .level-0 .tree-node {
-            background: linear-gradient(135deg, #ff6b6b, #ff5252);
-        }
-
-        .level-1 .tree-node {
-            background: linear-gradient(135deg, #4ecdc4, #26a69a);
-        }
-
-        .level-2 .tree-node {
-            background: linear-gradient(135deg, #45b7d1, #2196f3);
-        }
-
-        .level-3 .tree-node {
-            background: linear-gradient(135deg, #96ceb4, #4caf50);
-        }
-
-        .level-4 .tree-node {
-            background: linear-gradient(135deg, #feca57, #ff9800);
-        }
-
-        .level-5 .tree-node {
-            background: linear-gradient(135deg, #ff9ff3, #e91e63);
-        }
-
-        .bonus-amount {
-            font-weight: bold;
-            color: #ffd700;
+        #genealogy-tree:active {
+            cursor: grabbing;
         }
     </style>
 </head>
@@ -453,23 +428,6 @@ try {
 
                             <div id="genealogy-container">
                                 <div id="genealogy-tree">
-                                    <div class="tree-controls">
-                                        <button class="tree-btn" onclick="expandAll()" title="Expand All">
-                                            <i class="fas fa-expand-arrows-alt"></i>
-                                        </button>
-                                        <button class="tree-btn" onclick="collapseAll()" title="Collapse All">
-                                            <i class="fas fa-compress-arrows-alt"></i>
-                                        </button>
-                                        <button class="tree-btn" onclick="centerTree()" title="Center">
-                                            <i class="fas fa-crosshairs"></i>
-                                        </button>
-                                    </div>
-                                    <div class="text-center py-5">
-                                        <div class="spinner-border loading-spinner" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                        <h6 class="mt-3">Loading your genealogy tree...</h6>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -480,260 +438,111 @@ try {
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/apextree.min.js"></script>
     <script>
-        let tree;
-
-        // Tree data from PHP
-        const treeData = <?= json_encode($treeData) ?>;
-
-        console.log('Tree Data:', treeData); // Debug output
-
-        document.addEventListener('DOMContentLoaded', function () {
-            // Try to load ApexTree, fallback to simple tree if it fails
-            loadApexTreeScript().then(() => {
-                initializeApexTree();
-            }).catch(() => {
-                console.warn('ApexTree failed to load, using fallback');
-                initializeFallbackTree();
-            });
-        });
-
-        function loadApexTreeScript() {
-            return new Promise((resolve, reject) => {
-                // Try multiple CDN sources for ApexTree
-                const sources = [
-                    'https://cdn.jsdelivr.net/npm/apextree@1.0.0/dist/apextree.min.js',
-                    'https://unpkg.com/apextree@1.0.0/dist/apextree.min.js',
-                    '../assets/js/apextree.min.js' // Local fallback
-                ];
-
-                let currentIndex = 0;
-
-                function tryLoadScript() {
-                    if (currentIndex >= sources.length) {
-                        reject(new Error('All ApexTree sources failed'));
-                        return;
-                    }
-
-                    const script = document.createElement('script');
-                    script.src = sources[currentIndex];
-                    script.onload = () => {
-                        if (typeof ApexTree !== 'undefined') {
-                            resolve();
-                        } else {
-                            currentIndex++;
-                            tryLoadScript();
-                        }
-                    };
-                    script.onerror = () => {
-                        currentIndex++;
-                        tryLoadScript();
-                    };
-                    document.head.appendChild(script);
-                }
-
-                tryLoadScript();
-            });
+        // Function to generate a random hash
+        function generateRandomHash() {
+            return Math.floor(Math.random() * 0xFFFFFFFF).toString(16); // Generate a random 32-bit hex value
         }
 
-        function generateAvatar(name, level = 0) {
+        // Function to generate a random color
+        function getRandomColor() {
+            const r = Math.floor(Math.random() * 256);
+            const g = Math.floor(Math.random() * 256);
+            const b = Math.floor(Math.random() * 256);
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        // Function to generate a canvas with a random Identicon-like pattern
+        function generateIdenticon(size = 50) {
             const canvas = document.createElement('canvas');
-            canvas.width = 50;
-            canvas.height = 50;
+            canvas.width = size;
+            canvas.height = size;
             const ctx = canvas.getContext('2d');
 
-            // Background colors based on level
-            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3'];
-            const bgColor = colors[level] || '#a8e6cf';
+            // Fill background with light gray
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, size, size);
 
-            // Fill background
-            ctx.fillStyle = bgColor;
-            ctx.beginPath();
-            ctx.arc(25, 25, 25, 0, 2 * Math.PI);
-            ctx.fill();
+            // Use a 5x5 grid
+            const gridSize = 5;
+            const cellSize = size / gridSize;
 
-            // Add text (first letter of name)
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 20px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const initial = name ? name.charAt(0).toUpperCase() : '?';
-            ctx.fillText(initial, 25, 25);
+            // Generate a random hash for the pattern
+            const hash = generateRandomHash();
 
-            return canvas.toDataURL();
+            // Generate a random color for the pattern
+            const patternColor = getRandomColor();
+
+            // Calculate the offset to center the pattern
+            const offsetX = (size - (gridSize * cellSize)) / 2;
+            const offsetY = (size - (gridSize * cellSize)) / 2;
+
+            // Generate pattern based on the random hash
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    // Use the hash to determine if the cell should be filled
+                    const index = (i * gridSize + j) % 32; // Use lower bits of hash
+                    if ((parseInt(hash, 16) >> index) & 1) { // Convert hash to integer and check the bit
+                        ctx.fillStyle = patternColor; // Use the random color
+                        ctx.fillRect(offsetX + j * cellSize, offsetY + i * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+
+            canvas.className = 'avatar-canvas'; // Apply CSS class for styling
+            return canvas.toDataURL(); // Return as data URL for the image source
         }
 
-        function addAvatarsToTree(node) {
+        // Function to recursively add random colors to nodes and generate avatars
+        function addRandomColorsAndAvatars(node) {
+            node.options = node.options || {};
+            node.options.nodeBGColor = getRandomColor();
+            node.options.nodeBGColorHover = node.options.nodeBGColor;
+
             if (node.data) {
-                node.data.imageURL = generateAvatar(node.data.name, node.data.level);
+                node.data.imageURL = generateIdenticon(); // Generate a random identicon as data URL
             }
 
             if (node.children && node.children.length > 0) {
                 node.children.forEach(child => {
-                    addAvatarsToTree(child);
+                    addRandomColorsAndAvatars(child);
                 });
             }
 
             return node;
         }
 
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD',
-                minimumFractionDigits: 2
-            }).format(amount);
-        }
+        // Original data structure
+        const treeData = <?= json_encode($treeData) ?>;
 
-        function initializeApexTree() {
-            const container = document.getElementById('genealogy-tree');
+        // Apply random colors and generate avatars
+        const updatedData = addRandomColorsAndAvatars(treeData);
 
-            // Clear loading content
-            container.innerHTML = `
-                <div class="tree-controls">
-                    <button class="tree-btn" onclick="expandAll()" title="Expand All">
-                        <i class="fas fa-expand-arrows-alt"></i>
-                    </button>
-                    <button class="tree-btn" onclick="collapseAll()" title="Collapse All">
-                        <i class="fas fa-compress-arrows-alt"></i>
-                    </button>
-                    <button class="tree-btn" onclick="centerTree()" title="Center">
-                        <i class="fas fa-crosshairs"></i>
-                    </button>
-                </div>
-            `;
+        const options = {
+            contentKey: 'data',
+            width: 800,
+            height: 600,
+            nodeWidth: 150,
+            nodeHeight: 100,
+            fontColor: '#fff',
+            borderColor: '#333',
+            childrenSpacing: 50,
+            siblingSpacing: 20,
+            direction: 'top',
+            enableExpandCollapse: true,
+            nodeTemplate: (content) =>
+                `<div style='display: flex;flex-direction: column;gap: 10px;justify-content: center;align-items: center;height: 100%;'>
+                    <img style='width: 50px;height: 50px;' src='${content.imageURL}' alt='' class='avatar-canvas' />
+                    <div style="font-weight: bold; font-family: Arial; font-size: 14px">${content.name}</div>
+                </div>`,
+            canvasStyle: 'border: 1px solid black;background: #f6f6f6;',
+            enableToolbar: true,
+        };
 
-            // Add avatars to tree data
-            const dataWithAvatars = addAvatarsToTree(JSON.parse(JSON.stringify(treeData)));
-
-            const options = {
-                contentKey: 'data',
-                width: container.offsetWidth,
-                height: 600,
-                nodeWidth: 160,
-                nodeHeight: 130,
-                fontColor: '#fff',
-                borderColor: '#333',
-                childrenSpacing: 60,
-                siblingSpacing: 30,
-                direction: 'top',
-                enableExpandCollapse: true,
-                enableConnections: true, // Enable connecting lines
-                connectionColor: '#ffffff',
-                connectionWidth: 2,
-                nodeTemplate: (content) => {
-                    const statusBadge = content.hasPackage ?
-                        '<span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px;">ACTIVE</span>' :
-                        '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px;">INACTIVE</span>';
-
-                    const levelBadge = content.isRoot ?
-                        '<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px;">ROOT</span>' :
-                        `<span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px;">L${content.level}</span>`;
-
-                    const bonusDisplay = content.isRoot ?
-                        '<div style="font-size: 11px; color: #ffd700; font-weight: bold;">Network Leader</div>' :
-                        `<div style="font-size: 11px; color: #ffd700; font-weight: bold;">Bonus: ${formatCurrency(content.bonusAmount || 0)}</div>`;
-
-                    return `
-                        <div style='display: flex; flex-direction: column; gap: 6px; justify-content: center; align-items: center; height: 100%; padding: 8px;'>
-                            <img style='width: 50px; height: 50px;' src='${content.imageURL}' alt='' class='avatar-canvas' />
-                            <div style="font-weight: bold; font-family: Arial; font-size: 12px; text-align: center;">${content.name}</div>
-                            <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;">
-                                ${levelBadge}
-                                ${!content.isRoot ? statusBadge : ''}
-                            </div>
-                            ${bonusDisplay}
-                            ${content.isRoot ? '' : `<div style="font-size: 10px; opacity: 0.8;">${new Date(content.joined).toLocaleDateString()}</div>`}
-                        </div>
-                    `;
-                },
-                canvasStyle: 'border: 1px solid #ddd; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px;',
-                enableToolbar: true,
-                toolbarOptions: {
-                    zoom: true,
-                    fit: true,
-                    expandCollapse: true,
-                    fullscreen: true
-                }
-            };
-
-            try {
-                tree = new ApexTree(container, options);
-                tree.render(dataWithAvatars);
-            } catch (error) {
-                console.error('ApexTree initialization failed:', error);
-                initializeFallbackTree();
-            }
-        }
-
-        function initializeFallbackTree() {
-            const container = document.getElementById('genealogy-tree');
-
-            // Render simple fallback tree
-            function renderFallbackNode(node, level = 0) {
-                const hasChildren = node.children && node.children.length > 0;
-                const bonusDisplay = node.data.isRoot ?
-                    'Network Leader' :
-                    `Bonus: ${formatCurrency(node.data.bonusAmount || 0)}`;
-
-                let html = `
-                    <div class="tree-level level-${level}">
-                        <div class="tree-node">
-                            <div style="font-weight: bold; margin-bottom: 5px;">${node.data.name}</div>
-                            <div class="bonus-amount" style="font-size: 12px; margin-bottom: 5px;">${bonusDisplay}</div>
-                            <div style="font-size: 10px; margin-top: 5px;">
-                                ${node.data.isRoot ? 'ROOT' : `Level ${node.data.level}`}
-                                ${node.data.hasPackage ? ' • ACTIVE' : ' • INACTIVE'}
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                if (hasChildren) {
-                    node.children.forEach(child => {
-                        html += renderFallbackNode(child, level + 1);
-                    });
-                }
-
-                return html;
-            }
-
-            container.innerHTML = `
-                <div class="fallback-tree">
-                    ${renderFallbackNode(treeData)}
-                </div>
-            `;
-        }
-
-        function refreshTree() {
-            window.location.reload();
-        }
-
-        function expandAll() {
-            if (tree && tree.expandAll) {
-                tree.expandAll();
-            }
-        }
-
-        function collapseAll() {
-            if (tree && tree.collapseAll) {
-                tree.collapseAll();
-            }
-        }
-
-        function centerTree() {
-            if (tree && tree.fit) {
-                tree.fit();
-            }
-        }
-
-        // Handle window resize
-        window.addEventListener('resize', function () {
-            setTimeout(() => {
-                if (tree && tree.fit) {
-                    tree.fit();
-                }
-            }, 300);
+        document.addEventListener('DOMContentLoaded', () => {
+            const tree = new ApexTree(document.getElementById('genealogy-tree'), options);
+            tree.render(updatedData);
         });
     </script>
 </body>
