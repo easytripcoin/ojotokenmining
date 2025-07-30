@@ -128,10 +128,12 @@ function processEwalletTransaction($user_id, $type, $amount, $description, $refe
             return false;
         }
 
+        $status = $type === 'referral' || $type === 'bonus' ? 'completed' : 'pending';
+
         // Add transaction
         $stmt = $pdo->prepare("
             INSERT INTO ewallet_transactions (user_id, type, amount, description, reference_id, status) 
-            VALUES (?, ?, ?, ?, ?, 'pending')
+            VALUES (?, ?, ?, ?, ?, $status)
         ");
         $result = $stmt->execute([$user_id, $type, $amount, $description, $reference_id]);
 

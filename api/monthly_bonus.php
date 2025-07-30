@@ -45,7 +45,8 @@ try {
         'bonuses' => $bonuses,
         'packages' => $packages,
         'bonus_percentage' => MONTHLY_BONUS_PERCENTAGE,
-        'bonus_months' => BONUS_MONTHS
+        'bonus_months' => BONUS_MONTHS,
+        'currency' => DEFAULT_CURRENCY // Add this line
     ]);
 
 } catch (Exception $e) {

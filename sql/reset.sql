@@ -300,6 +300,11 @@ VALUES (
         'USDT conversion rate'
     ),
     (
+        'default_currency',
+        'USDT',
+        'Default currency for the system'
+    ),
+    (
         'default_sponsor_enabled',
         '1',
         'Enable automatic admin sponsor assignment'

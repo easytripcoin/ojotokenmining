@@ -1,3 +1,4 @@
+-- sql/database_schema.sql
 -- OjoTokenMining Database Schema
 -- Phase 1: Core tables for authentication and system foundation
 
@@ -217,6 +218,11 @@ VALUES (
         'usdt_rate',
         '1.00',
         'USDT conversion rate'
+    ),
+    (
+        'default_currency',
+        'USDT',
+        'Default currency for the system'
     ),
     (
         'default_sponsor_enabled',

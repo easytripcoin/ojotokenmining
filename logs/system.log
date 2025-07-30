@@ -65,3 +65,8 @@
 [2025-07-29 17:10:30] [info] User login successful: admin
 [2025-07-30 00:01:58] [info] User login successful: admin
 [2025-07-30 00:02:13] [info] User login successful: test1
+[2025-07-30 07:46:25] [warning] Failed login attempt for: admin
+[2025-07-30 07:47:11] [info] User login successful: admin
+[2025-07-30 09:04:37] [info] User login successful: admin
+[2025-07-30 09:15:44] [info] User login successful: test1
+[2025-07-30 09:58:39] [info] User login successful: test2

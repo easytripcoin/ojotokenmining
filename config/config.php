@@ -56,7 +56,7 @@ define('FROM_NAME', 'OjoTokenMining');
 
 // Currency settings
 define('DEFAULT_CURRENCY', 'USDT');
-define('CURRENCY_SYMBOL', '$');
+define('CURRENCY_SYMBOL', 'USDT');
 define('DECIMAL_PLACES', 2);
 
 // Admin settings
@@ -80,7 +80,8 @@ function getPackageInfo($package_id)
  */
 function formatCurrency($amount)
 {
-    return CURRENCY_SYMBOL . number_format($amount, DECIMAL_PLACES);
+    // Always format as "amount SYMBOL" since CURRENCY_SYMBOL is 'USDT'
+    return number_format($amount, DECIMAL_PLACES) . ' ' . CURRENCY_SYMBOL;
 }
 
 /**

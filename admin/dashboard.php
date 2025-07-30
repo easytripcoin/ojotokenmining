@@ -83,8 +83,8 @@ try {
                 <div class="col-md-3">
                     <div class="card stats-card">
                         <div class="card-body">
-                            <i class="fas fa-dollar-sign stats-icon"></i>
-                            <h5><?= formatCurrency($total_earnings) ?></h5>
+                            <i class="fas fa-money-bill-wave stats-icon"></i>
+                            <h5><?= formatCurrency($total_earnings * (-1)) ?></h5>
                             <p>Total Earnings</p>
                         </div>
                     </div>

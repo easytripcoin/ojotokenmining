@@ -45,6 +45,7 @@ $settings = [];
 $keys = [
     'admin_usdt_wallet',
     'usdt_rate',
+    'default_currency',
     'monthly_bonus_percentage',
     'referral_level_2_percentage',
     'referral_level_3_percentage',
