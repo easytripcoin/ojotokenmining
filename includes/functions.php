@@ -59,6 +59,28 @@ function getEwalletBalance($user_id)
 }
 
 /**
+ * Get user's withdrawable balance
+ * @param int $user_id User ID
+ * @return float Withdrawable balance
+ */
+function getWithdrawableBalance($user_id)
+{
+    try {
+        $pdo = getConnection();
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(amount), 0) as withdrawable_balance
+            FROM ewallet_transactions
+            WHERE user_id = ? AND is_withdrawable = 1
+        ");
+        $stmt->execute([$user_id]);
+        return floatval($stmt->fetchColumn());
+    } catch (Exception $e) {
+        logEvent("Get withdrawable balance error: " . $e->getMessage(), 'error');
+        return 0.00;
+    }
+}
+
+/**
  * Update ewallet balance
  * @param int $user_id User ID
  * @param float $new_balance New balance
@@ -83,14 +105,19 @@ function updateEwalletBalance($user_id, $new_balance)
  * @param float $amount Transaction amount
  * @param string $description Transaction description
  * @param int|null $reference_id Reference ID for related records
+ * @param bool $is_withdrawable Whether the amount is withdrawable
  * @return bool Success status
  */
-function addEwalletTransaction($user_id, $type, $amount, $description, $reference_id = null)
+function addEwalletTransaction($user_id, $type, $amount, $description, $reference_id = null, $is_withdrawable = false)
 {
     try {
         $pdo = getConnection();
-        $stmt = $pdo->prepare("INSERT INTO ewallet_transactions (user_id, type, amount, description, reference_id) VALUES (?, ?, ?, ?, ?)");
-        return $stmt->execute([$user_id, $type, $amount, $description, $reference_id]);
+        $stmt = $pdo->prepare("
+            INSERT INTO ewallet_transactions (
+                user_id, type, amount, description, reference_id, status, is_withdrawable
+            ) VALUES (?, ?, ?, ?, ?, 'completed', ?)
+        ");
+        return $stmt->execute([$user_id, $type, $amount, $description, $reference_id, $is_withdrawable]);
     } catch (Exception $e) {
         logEvent("Add ewallet transaction error: " . $e->getMessage(), 'error');
         return false;
@@ -865,13 +892,23 @@ function processReferralBonuses($buyer_id, $amount, $package_id)
                     $package_id
                 ]);
 
-                // Add to sponsor's ewallet
-                processEwalletTransaction(
+                // // Add to sponsor's ewallet
+                // processEwalletTransaction(
+                //     $sponsor_id,
+                //     'referral',
+                //     $bonus_amount,
+                //     "Level $level referral bonus from user ID: $buyer_id",
+                //     $buyer_id
+                // );
+
+                // Add to sponsor's ewallet (withdrawable)
+                addEwalletTransaction(
                     $sponsor_id,
                     'referral',
                     $bonus_amount,
                     "Level $level referral bonus from user ID: $buyer_id",
-                    $buyer_id
+                    $buyer_id,
+                    true // Mark as withdrawable
                 );
             }
         }

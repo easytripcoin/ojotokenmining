@@ -89,28 +89,31 @@ CREATE TABLE IF NOT EXISTS ewallet (
 
 DROP TABLE IF EXISTS ewallet_transactions;
 
-CREATE TABLE IF NOT EXISTS ewallet_transactions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    type ENUM(
+CREATE TABLE IF NOT EXISTS `ewallet_transactions` (
+    `id` int NOT NULL AUTO_INCREMENT,
+    `user_id` int NOT NULL,
+    `type` enum(
         'deposit',
         'withdrawal',
         'bonus',
         'referral',
         'purchase',
         'refund'
-    ) NOT NULL,
-    amount DECIMAL(15, 2) NOT NULL,
-    description TEXT,
-    status ENUM(
+    ) COLLATE utf8mb4_unicode_ci NOT NULL,
+    `amount` decimal(15, 2) NOT NULL,
+    `description` text COLLATE utf8mb4_unicode_ci,
+    `status` enum(
         'pending',
         'completed',
         'failed'
-    ) DEFAULT 'completed',
-    reference_id INT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-);
+    ) COLLATE utf8mb4_unicode_ci DEFAULT 'completed',
+    `reference_id` int DEFAULT NULL,
+    `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+    `is_withdrawable` tinyint(1) DEFAULT '0',
+    PRIMARY KEY (`id`),
+    KEY `user_id` (`user_id`),
+    CONSTRAINT `ewallet_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB AUTO_INCREMENT = 10 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
 
 -- ===================================================
 -- REQUESTS SYSTEM

@@ -285,3 +285,6 @@ ADD COLUMN transaction_hash VARCHAR(255) NULL AFTER amount;
 -- SELECT * FROM users WHERE sponsor_id = 2;
 
 -- SELECT * FROM referral_bonuses WHERE user_id = 2;
+
+ALTER TABLE ewallet_transactions
+ADD COLUMN is_withdrawable TINYINT(1) DEFAULT 0;

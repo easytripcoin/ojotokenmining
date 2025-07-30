@@ -9,7 +9,8 @@ require_once '../includes/validation.php';
 requireLogin('../login.php');
 
 $user_id = getCurrentUserId();
-$balance = getEwalletBalance($user_id);
+// $balance = getEwalletBalance($user_id);
+$balance = getWithdrawableBalance($user_id);
 $errors = [];
 $success = '';
 
@@ -33,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($amount < 10) {
                 $errors['amount'] = 'Minimum withdrawal amount is 10 USDT';
             } elseif ($amount > $balance) {
-                $errors['amount'] = 'Insufficient balance';
+                $errors['amount'] = 'Insufficient withdrawable balance';
             } elseif (strlen($wallet_address) < 25 || !preg_match('/^T[A-Za-z0-9]{33}$/', $wallet_address)) {
                 $errors['wallet_address'] = 'Invalid USDT wallet address';
             } else {

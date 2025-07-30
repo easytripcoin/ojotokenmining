@@ -61,12 +61,22 @@ try {
             $bonus_id = $pdo->lastInsertId();
 
             // Add ewallet transaction
-            processEwalletTransaction(
-                $package['user_id'],
+            // processEwalletTransaction(
+            //     $package['user_id'],
+            //     'bonus',
+            //     $bonus_amount,
+            //     "Monthly bonus for {$package['name']} - Cycle {$package['current_cycle']}",
+            //     $bonus_id
+            // );
+
+            // Add to ewallet (withdrawable)
+            addEwalletTransaction(
+                $user_id,
                 'bonus',
                 $bonus_amount,
                 "Monthly bonus for {$package['name']} - Cycle {$package['current_cycle']}",
-                $bonus_id
+                $bonus_id,
+                true // Mark as withdrawable
             );
 
             // Update current cycle
