@@ -98,8 +98,10 @@ CREATE TABLE IF NOT EXISTS `ewallet_transactions` (
         'bonus',
         'referral',
         'purchase',
-        'refund'
-    ) COLLATE utf8mb4_unicode_ci NOT NULL,
+        'refund',
+        'transfer',
+        'transfer_charge'
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     `amount` decimal(15, 2) NOT NULL,
     `description` text COLLATE utf8mb4_unicode_ci,
     `status` enum(
@@ -113,7 +115,7 @@ CREATE TABLE IF NOT EXISTS `ewallet_transactions` (
     PRIMARY KEY (`id`),
     KEY `user_id` (`user_id`),
     CONSTRAINT `ewallet_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 10 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
+) ENGINE = InnoDB AUTO_INCREMENT = 16 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
 
 -- ===================================================
 -- REQUESTS SYSTEM

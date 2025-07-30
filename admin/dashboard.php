@@ -14,7 +14,7 @@ try {
     // Total stats
     $total_users = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'user'")->fetchColumn();
     $total_packages = $pdo->query("SELECT COUNT(*) FROM user_packages WHERE status = 'active'")->fetchColumn();
-    $total_earnings = $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM ewallet_transactions WHERE type IN ('purchase', 'bonus', 'referral')")->fetchColumn();
+    $total_earnings = $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM ewallet_transactions WHERE type IN ('purchase', /* 'bonus', 'referral', */ 'transfer_charge')")->fetchColumn();
 
     // Pending requests
     $pending_withdrawals = $pdo->query("SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'pending'")->fetchColumn();

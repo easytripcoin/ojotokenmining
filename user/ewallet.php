@@ -68,6 +68,11 @@ $transactions = getTransactionHistory($user_id, 20);
                                 <i class="fas fa-arrow-up"></i> Add Funds
                             </a>
                         </div>
+                        <div class="col-md-6">
+                            <a href="transfer.php" class="btn btn-warning btn-lg w-100 mb-3">
+                                <i class="fas fa-arrow-right"></i> Transfer Funds
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

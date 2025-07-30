@@ -288,3 +288,15 @@ ADD COLUMN transaction_hash VARCHAR(255) NULL AFTER amount;
 
 ALTER TABLE ewallet_transactions
 ADD COLUMN is_withdrawable TINYINT(1) DEFAULT 0;
+
+ALTER TABLE `ewallet_transactions`
+MODIFY COLUMN `type` ENUM(
+    'deposit',
+    'withdrawal',
+    'bonus',
+    'referral',
+    'purchase',
+    'refund',
+    'transfer',
+    'transfer_charge'
+) COLLATE utf8mb4_unicode_ci NOT NULL;

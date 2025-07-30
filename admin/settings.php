@@ -10,6 +10,8 @@ requireAdmin('../login.php');
 $errors = [];
 $success = '';
 
+// admin/settings.php
+
 // Handle settings update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
@@ -25,7 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'referral_level_4_percentage' => intval($_POST['referral_level_4_percentage']),
                 'referral_level_5_percentage' => intval($_POST['referral_level_5_percentage']),
                 'default_sponsor_enabled' => isset($_POST['default_sponsor_enabled']) ? '1' : '0',
-                'orphan_prevention' => isset($_POST['orphan_prevention']) ? '1' : '0'
+                'orphan_prevention' => isset($_POST['orphan_prevention']) ? '1' : '0',
+                'transfer_charge_percentage' => floatval($_POST['transfer_charge_percentage']),
+                'transfer_minimum_amount' => floatval($_POST['transfer_minimum_amount']),
+                'transfer_maximum_amount' => floatval($_POST['transfer_maximum_amount']),
             ];
 
             foreach ($settings as $key => $value) {
@@ -45,14 +50,16 @@ $settings = [];
 $keys = [
     'admin_usdt_wallet',
     'usdt_rate',
-    'default_currency',
     'monthly_bonus_percentage',
     'referral_level_2_percentage',
     'referral_level_3_percentage',
     'referral_level_4_percentage',
     'referral_level_5_percentage',
     'default_sponsor_enabled',
-    'orphan_prevention'
+    'orphan_prevention',
+    'transfer_charge_percentage',
+    'transfer_minimum_amount',
+    'transfer_maximum_amount',
 ];
 
 foreach ($keys as $key) {
@@ -173,6 +180,41 @@ foreach ($keys as $key) {
                                     <input type="number" class="form-control" name="referral_level_5_percentage"
                                         value="<?= htmlspecialchars($settings['referral_level_5_percentage']) ?>"
                                         min="0" max="100">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transfer Settings -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-exchange-alt"></i> Transfer Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Transfer Charge (%)</label>
+                                    <input type="number" class="form-control" name="transfer_charge_percentage"
+                                        value="<?= htmlspecialchars($settings['transfer_charge_percentage']) ?>"
+                                        step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Minimum Transfer Amount (<?= CURRENCY_SYMBOL ?>)</label>
+                                    <input type="number" class="form-control" name="transfer_minimum_amount"
+                                        value="<?= htmlspecialchars($settings['transfer_minimum_amount']) ?>"
+                                        step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Maximum Transfer Amount (<?= CURRENCY_SYMBOL ?>)</label>
+                                    <input type="number" class="form-control" name="transfer_maximum_amount"
+                                        value="<?= htmlspecialchars($settings['transfer_maximum_amount']) ?>"
+                                        step="0.01" min="0">
                                 </div>
                             </div>
                         </div>

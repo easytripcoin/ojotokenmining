@@ -98,28 +98,49 @@ function updateEwalletBalance($user_id, $new_balance)
     }
 }
 
-/**
- * Add ewallet transaction
- * @param int $user_id User ID
- * @param string $type Transaction type
- * @param float $amount Transaction amount
- * @param string $description Transaction description
- * @param int|null $reference_id Reference ID for related records
- * @param bool $is_withdrawable Whether the amount is withdrawable
- * @return bool Success status
- */
-function addEwalletTransaction($user_id, $type, $amount, $description, $reference_id = null, $is_withdrawable = false)
+function addEwalletTransaction($user_id, $type, $amount, $description, $reference_id = null, $is_withdrawable = 0)
 {
     try {
+        error_log("Adding ewallet transaction: user=$user_id, type=$type, amount=$amount, description=$description, reference_id=$reference_id, is_withdrawable=$is_withdrawable");
+
         $pdo = getConnection();
+        $pdo->beginTransaction(); // Start a transaction
+
+        $current_balance = getEwalletBalance($user_id);
+        $new_balance = $current_balance + $amount;
+
+        // Update balance
+        $stmt = $pdo->prepare("UPDATE ewallet SET balance = ?, updated_at = NOW() WHERE user_id = ?");
+        if (!$stmt->execute([$new_balance, $user_id])) {
+            error_log("Failed to update balance for user $user_id");
+            $pdo->rollBack(); // Rollback transaction
+            return false;
+        }
+
+        // Determine the status based on the type
+        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge']) ? 'completed' : 'pending';
+
+        // Ensure is_withdrawable is a valid integer (0 or 1)
+        $is_withdrawable = (int) $is_withdrawable;
+
+        // Add transaction
         $stmt = $pdo->prepare("
-            INSERT INTO ewallet_transactions (
-                user_id, type, amount, description, reference_id, status, is_withdrawable
-            ) VALUES (?, ?, ?, ?, ?, 'completed', ?)
+            INSERT INTO ewallet_transactions (user_id, type, amount, description, reference_id, status, is_withdrawable) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
-        return $stmt->execute([$user_id, $type, $amount, $description, $reference_id, $is_withdrawable]);
+        if (!$stmt->execute([$user_id, $type, $amount, $description, $reference_id, $status, $is_withdrawable])) {
+            error_log("Failed to add transaction");
+            $pdo->rollBack(); // Rollback transaction
+            return false;
+        }
+
+        $pdo->commit(); // Commit transaction
+        error_log("Transaction added successfully for user $user_id");
+        return true;
+
     } catch (Exception $e) {
-        logEvent("Add ewallet transaction error: " . $e->getMessage(), 'error');
+        error_log("Transaction error: " . $e->getMessage());
+        $pdo->rollBack(); // Rollback transaction on error
         return false;
     }
 }
@@ -140,6 +161,8 @@ function processEwalletTransaction($user_id, $type, $amount, $description, $refe
         error_log("Processing transaction: user=$user_id, type=$type, amount=$amount");
 
         $pdo = getConnection();
+        $pdo->beginTransaction(); // Start a transaction
+
         $current_balance = getEwalletBalance($user_id);
         $new_balance = $current_balance + $amount;
 
@@ -150,25 +173,30 @@ function processEwalletTransaction($user_id, $type, $amount, $description, $refe
 
         // Update balance
         $stmt = $pdo->prepare("UPDATE ewallet SET balance = ?, updated_at = NOW() WHERE user_id = ?");
+
         if (!$stmt->execute([$new_balance, $user_id])) {
             error_log("Failed to update balance");
+            $pdo->rollBack(); // Rollback transaction
             return false;
         }
 
-        $status = $type === 'referral' || $type === 'bonus' ? 'completed' : 'pending';
+        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge']) ? 'completed' : 'pending';
 
         // Add transaction
         $stmt = $pdo->prepare("
-            INSERT INTO ewallet_transactions (user_id, type, amount, description, reference_id, status) 
-            VALUES (?, ?, ?, ?, ?, $status)
+            INSERT INTO ewallet_transactions (user_id, type, amount, description, reference_id, status, is_withdrawable) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
-        $result = $stmt->execute([$user_id, $type, $amount, $description, $reference_id]);
-
-        if ($result) {
-            error_log("Transaction processed successfully");
+        $is_withdrawable = (int) (/* $type === 'transfer' ? 0 : 1 */ 0); // Transfer is not withdrawable
+        if (!$stmt->execute([$user_id, $type, $amount, $description, $reference_id, $status, $is_withdrawable])) {
+            error_log("Failed to add transaction");
+            $pdo->rollBack(); // Rollback transaction
+            return false;
         }
 
-        return $result;
+        $pdo->commit(); // Commit transaction
+        error_log("Transaction processed successfully");
+        return true;
 
     } catch (Exception $e) {
         error_log("Transaction error: " . $e->getMessage());
