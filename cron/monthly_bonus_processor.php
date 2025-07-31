@@ -71,7 +71,7 @@ try {
 
             // Add to ewallet (withdrawable)
             addEwalletTransaction(
-                $user_id,
+                /* $user_id */ $package['user_id'],
                 'bonus',
                 $bonus_amount,
                 "Monthly bonus for {$package['name']} - Cycle {$package['current_cycle']}",

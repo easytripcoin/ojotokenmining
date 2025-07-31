@@ -1,6 +1,6 @@
 <?php
-// user/checkout.php
-require_once '../config/config.php';      // Must load first
+// user/checkout.php - Production version
+require_once '../config/config.php';
 require_once '../config/session.php';
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_purchase'])) 
 </head>
 
 <body>
-    <!-- Sidebar (same as dashboard) -->
+    <!-- Sidebar -->
     <nav class="sidebar">
         <div class="sidebar-header">
             <h4><i class="fas fa-coins me-2"></i><?= SITE_NAME ?></h4>

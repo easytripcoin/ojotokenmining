@@ -2,6 +2,9 @@
 // Utility Functions
 // includes/functions.php
 
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
+
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 
@@ -118,7 +121,7 @@ function addEwalletTransaction($user_id, $type, $amount, $description, $referenc
         }
 
         // Determine the status based on the type
-        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge']) ? 'completed' : 'pending';
+        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge', 'purchase']) ? 'completed' : 'pending';
 
         // Ensure is_withdrawable is a valid integer (0 or 1)
         $is_withdrawable = (int) $is_withdrawable;
@@ -145,61 +148,61 @@ function addEwalletTransaction($user_id, $type, $amount, $description, $referenc
     }
 }
 
-/**
- * Process ewallet transaction (update balance and add transaction record)
- * @param int $user_id User ID
- * @param string $type Transaction type
- * @param float $amount Transaction amount (positive for credit, negative for debit)
- * @param string $description Transaction description
- * @param int|null $reference_id Reference ID
- * @return bool Success status
- */
-// Temporary debug in functions.php
 function processEwalletTransaction($user_id, $type, $amount, $description, $reference_id = null)
 {
     try {
-        error_log("Processing transaction: user=$user_id, type=$type, amount=$amount");
-
         $pdo = getConnection();
-        $pdo->beginTransaction(); // Start a transaction
+
+        // Check if already in transaction
+        $inTransaction = $pdo->inTransaction();
+        $shouldBegin = !$inTransaction;
+
+        if ($shouldBegin) {
+            $pdo->beginTransaction();
+        }
 
         $current_balance = getEwalletBalance($user_id);
         $new_balance = $current_balance + $amount;
 
         if ($amount < 0 && $new_balance < 0) {
-            error_log("Insufficient funds: current=$current_balance, needed=$amount");
+            if ($shouldBegin)
+                $pdo->rollBack();
             return false;
         }
 
         // Update balance
         $stmt = $pdo->prepare("UPDATE ewallet SET balance = ?, updated_at = NOW() WHERE user_id = ?");
-
         if (!$stmt->execute([$new_balance, $user_id])) {
-            error_log("Failed to update balance");
-            $pdo->rollBack(); // Rollback transaction
+            if ($shouldBegin)
+                $pdo->rollBack();
             return false;
         }
 
-        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge']) ? 'completed' : 'pending';
-
         // Add transaction
+        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge', 'purchase']) ? 'completed' : 'pending';
+        $is_withdrawable = ($type === 'transfer' || $type === 'purchase') ? 0 : 1;
+
         $stmt = $pdo->prepare("
             INSERT INTO ewallet_transactions (user_id, type, amount, description, reference_id, status, is_withdrawable) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
-        $is_withdrawable = (int) (/* $type === 'transfer' ? 0 : 1 */ 0); // Transfer is not withdrawable
+
         if (!$stmt->execute([$user_id, $type, $amount, $description, $reference_id, $status, $is_withdrawable])) {
-            error_log("Failed to add transaction");
-            $pdo->rollBack(); // Rollback transaction
+            if ($shouldBegin)
+                $pdo->rollBack();
             return false;
         }
 
-        $pdo->commit(); // Commit transaction
-        error_log("Transaction processed successfully");
+        if ($shouldBegin) {
+            $pdo->commit();
+        }
+
         return true;
 
     } catch (Exception $e) {
-        error_log("Transaction error: " . $e->getMessage());
+        if (isset($pdo) && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         return false;
     }
 }
@@ -224,12 +227,7 @@ function getTransactionHistory($user_id, $limit = 20, $offset = 0)
     }
 }
 
-/**
- * Purchase package for user
- * @param int $user_id User ID
- * @param int $package_id Package ID
- * @return array Result with success status and message
- */
+// for debugging purposes
 function purchasePackage($user_id, $package_id)
 {
     try {
@@ -247,37 +245,39 @@ function purchasePackage($user_id, $package_id)
             return ['success' => false, 'message' => 'Insufficient ewallet balance.'];
         }
 
+        // Begin transaction
         $pdo->beginTransaction();
 
         try {
             // Deduct amount from ewallet
-            if (!processEwalletTransaction($user_id, 'purchase', -$package['price'], "Package purchase: {$package['name']}", $package_id)) {
-                throw new Exception("Failed to process ewallet transaction");
+            $deduct_success = processEwalletTransaction($user_id, 'purchase', -$package['price'], "Package purchase: {$package['name']}", $package_id);
+
+            if (!$deduct_success) {
+                $pdo->rollBack();
+                return ['success' => false, 'message' => 'Failed to process ewallet transaction'];
             }
 
             // Add user package record
             $stmt = $pdo->prepare("INSERT INTO user_packages (user_id, package_id) VALUES (?, ?)");
             if (!$stmt->execute([$user_id, $package_id])) {
-                throw new Exception("Failed to add user package record");
+                $pdo->rollBack();
+                return ['success' => false, 'message' => 'Failed to add package record'];
             }
 
-            $user_package_id = $pdo->lastInsertId();
-
-            // Process referral bonuses
+            // Process referral bonuses (outside transaction)
+            $pdo->commit();
             processReferralBonuses($user_id, $package['price'], $package_id);
 
-            $pdo->commit();
-
-            logEvent("Package purchased: User $user_id bought package $package_id", 'info');
             return ['success' => true, 'message' => "Package '{$package['name']}' purchased successfully!"];
 
         } catch (Exception $e) {
-            $pdo->rollBack();
-            throw $e;
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            return ['success' => false, 'message' => 'Package purchase failed: ' . $e->getMessage()];
         }
 
     } catch (Exception $e) {
-        logEvent("Package purchase error: " . $e->getMessage(), 'error');
         return ['success' => false, 'message' => 'Package purchase failed. Please try again.'];
     }
 }
@@ -941,8 +941,12 @@ function processReferralBonuses($buyer_id, $amount, $package_id)
             }
         }
 
+        return true;
+
     } catch (Exception $e) {
         logEvent("Process referral bonuses error: " . $e->getMessage(), 'error');
+
+        return false;
     }
 }
 
@@ -1056,6 +1060,13 @@ function generateIdenticon($username)
     imagedestroy($canvas);
 
     return 'data:image/png;base64,' . base64_encode($data);
+}
+
+function debugLog($message)
+{
+    $file = __DIR__ . '/../logs/debug_' . date('Y-m-d') . '.log';
+    $time = date('Y-m-d H:i:s');
+    file_put_contents($file, "[$time] $message\n", FILE_APPEND | LOCK_EX);
 }
 
 ?>
