@@ -1,7 +1,5 @@
 <?php
-// cron/monthly_bonus_processor.php
-// Run via cron: php monthly_bonus_processor.php
-
+// cron/monthly_bonus_processor.php - Completely fixed
 require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/functions.php';
@@ -16,7 +14,7 @@ echo "Starting monthly bonus processing...\n";
 try {
     $pdo = getConnection();
 
-    // Get active packages eligible for monthly bonus
+    // Get eligible packages
     $stmt = $pdo->prepare("
         SELECT up.*, p.price, p.name, u.username
         FROM user_packages up
@@ -24,7 +22,6 @@ try {
         JOIN users u ON up.user_id = u.id
         WHERE up.status = 'active' 
         AND up.current_cycle <= up.total_cycles
-        AND MONTH(up.purchase_date) < MONTH(NOW())
         AND NOT EXISTS (
             SELECT 1 FROM monthly_bonuses mb 
             WHERE mb.user_package_id = up.id 
@@ -41,11 +38,12 @@ try {
     foreach ($eligible_packages as $package) {
         $bonus_amount = ($package['price'] * MONTHLY_BONUS_PERCENTAGE) / 100;
 
-        // Begin transaction
+        echo "Processing: {$package['username']} - {$package['name']} (Cycle {$package['current_cycle']}) - Bonus: $bonus_amount\n";
+
         $pdo->beginTransaction();
 
         try {
-            // Add monthly bonus record
+            // 1. Add bonus record
             $stmt = $pdo->prepare("
                 INSERT INTO monthly_bonuses (user_id, package_id, user_package_id, month_number, amount) 
                 VALUES (?, ?, ?, ?, ?)
@@ -58,48 +56,43 @@ try {
                 $bonus_amount
             ]);
 
-            $bonus_id = $pdo->lastInsertId();
+            // 2. Update ewallet balance directly (no nested calls)
+            $stmt = $pdo->prepare("
+                UPDATE ewallet 
+                SET balance = balance + ?, updated_at = NOW() 
+                WHERE user_id = ?
+            ");
+            $stmt->execute([$bonus_amount, $package['user_id']]);
 
-            // Add ewallet transaction
-            // processEwalletTransaction(
-            //     $package['user_id'],
-            //     'bonus',
-            //     $bonus_amount,
-            //     "Monthly bonus for {$package['name']} - Cycle {$package['current_cycle']}",
-            //     $bonus_id
-            // );
-
-            // Add to ewallet (withdrawable)
-            addEwalletTransaction(
-                /* $user_id */ $package['user_id'],
-                'bonus',
+            // 3. Add transaction record
+            $stmt = $pdo->prepare("
+                INSERT INTO ewallet_transactions (user_id, type, amount, description, status, is_withdrawable) 
+                VALUES (?, 'bonus', ?, ?, 'completed', 1)
+            ");
+            $stmt->execute([
+                $package['user_id'],
                 $bonus_amount,
-                "Monthly bonus for {$package['name']} - Cycle {$package['current_cycle']}",
-                $bonus_id,
-                true // Mark as withdrawable
-            );
+                "Monthly bonus for {$package['name']} - Cycle {$package['current_cycle']}"
+            ]);
 
-            // Update current cycle
+            // 4. Update cycle
+            $new_cycle = $package['current_cycle'] + 1;
             $stmt = $pdo->prepare("
                 UPDATE user_packages 
-                SET current_cycle = current_cycle + 1,
-                status = CASE WHEN current_cycle >= total_cycles THEN 'completed' ELSE 'active' END
+                SET current_cycle = ?,
+                status = CASE WHEN ? > ? THEN 'completed' ELSE 'active' END
                 WHERE id = ?
             ");
-            $stmt->execute([$package['id']]);
-
-            // Handle 4th month withdraw/remine
-            if ($package['current_cycle'] >= BONUS_MONTHS) {
-                logEvent("Package {$package['id']} reached 4th month - withdraw/remine available", 'info');
-            }
+            $stmt->execute([$new_cycle, $new_cycle, BONUS_MONTHS, $package['id']]);
 
             $pdo->commit();
             $processed++;
-            echo "Processed package {$package['id']} for user {$package['username']}\n";
+            echo "✅ Processed successfully\n";
 
         } catch (Exception $e) {
             $pdo->rollBack();
-            echo "Error processing package {$package['id']}: " . $e->getMessage() . "\n";
+            echo "❌ Error: " . $e->getMessage() . "\n";
+            echo "SQL Error: " . implode(" - ", $pdo->errorInfo()) . "\n";
         }
     }
 
@@ -107,6 +100,7 @@ try {
 
 } catch (Exception $e) {
     echo "Fatal error: " . $e->getMessage() . "\n";
+    echo "Stack trace: " . $e->getTraceAsString() . "\n";
     exit(1);
 }
 

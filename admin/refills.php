@@ -56,22 +56,25 @@ try {
 
         // In admin/refills.php - Update the approval handling
         if ($action === 'approve') {
-            // Update refill request status
-            $stmt = $pdo->prepare("
-                UPDATE refill_requests 
-                SET status = 'approved', admin_notes = ?, approved_at = NOW() 
-                WHERE id = ?
-            ");
-            $stmt->execute([$admin_notes, $request_id]);
+            // Check transaction state
+            $inTransaction = $pdo->inTransaction();
+            $shouldBegin = !$inTransaction;
 
-            // Get refill details
-            $stmt = $pdo->prepare("SELECT user_id, amount FROM refill_requests WHERE id = ?");
-            $stmt->execute([$request_id]);
-            $refill = $stmt->fetch();
+            if ($shouldBegin) {
+                $pdo->beginTransaction();
+            }
 
-            if ($refill) {
-                // 1. Add funds to user ewallet
-                processEwalletTransaction(
+            try {
+                // Update refill request
+                $stmt = $pdo->prepare("
+            UPDATE refill_requests 
+            SET status = 'approved', admin_notes = ?, approved_at = NOW() 
+            WHERE id = ?
+        ");
+                $stmt->execute([$admin_notes, $request_id]);
+
+                // Use processEwalletTransaction instead of manual queries
+                $success = processEwalletTransaction(
                     $refill['user_id'],
                     'deposit',
                     $refill['amount'],
@@ -79,17 +82,26 @@ try {
                     $request_id
                 );
 
-                // 2. Update transaction status
+                // Update transaction status
                 $stmt = $pdo->prepare("
-                    UPDATE ewallet_transactions 
-                    SET status = 'completed', description = CONCAT(description, ' - Approved') 
-                    WHERE reference_id = ? AND type = 'deposit' AND status = 'pending'
-                ");
+            UPDATE ewallet_transactions 
+            SET status = 'completed', description = CONCAT(description, ' - Approved') 
+            WHERE reference_id = ? AND type = 'deposit' AND status = 'pending'
+        ");
                 $stmt->execute([$request_id]);
+
+                if ($shouldBegin) {
+                    $pdo->commit();
+                }
+
+                redirectWithMessage('refills.php', 'Refill approved and funds added.', 'success');
+
+            } catch (Exception $e) {
+                if ($shouldBegin && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                redirectWithMessage('refills.php', 'Error processing refill.', 'error');
             }
-
-            redirectWithMessage('refills.php', 'Refill approved and funds added to user wallet.', 'success');
-
         } elseif ($action === 'reject') {
             // Update refill request status
             $stmt = $pdo->prepare("

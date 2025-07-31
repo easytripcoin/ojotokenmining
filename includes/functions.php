@@ -683,75 +683,85 @@ function isPackageEligibleForWithdrawRemine($package_id)
     }
 }
 
-/**
- * Process withdraw/remine for completed package
- * @param int $user_id User ID
- * @param int $package_id Package ID
- * @param string $action 'withdraw' or 'remine'
- * @return array Result
- */
 function processWithdrawRemine($user_id, $package_id, $action)
 {
     try {
         $pdo = getConnection();
-        $pdo->beginTransaction();
 
-        // Get package details
-        $stmt = $pdo->prepare("
-            SELECT up.*, p.price, p.name
-            FROM user_packages up
-            JOIN packages p ON up.package_id = p.id
-            WHERE up.id = ? AND up.user_id = ? AND up.status = 'active'
-            AND up.current_cycle > ?
-        ");
-        $stmt->execute([$package_id, $user_id, BONUS_MONTHS]);
-        $package = $stmt->fetch();
+        // Check transaction state
+        $inTransaction = $pdo->inTransaction();
+        $shouldBegin = !$inTransaction;
 
-        if (!$package) {
-            return ['success' => false, 'message' => 'Package not eligible for withdraw/remine'];
+        if ($shouldBegin) {
+            $pdo->beginTransaction();
         }
 
-        if ($action === 'withdraw') {
-            // Return original package price
-            processEwalletTransaction(
-                $user_id,
-                'refund',
-                $package['price'],
-                "Withdraw completed package: {$package['name']}",
-                $package['id']
-            );
-
-            // Mark package as withdrawn
-            $stmt = $pdo->prepare("UPDATE user_packages SET status = 'withdrawn' WHERE id = ?");
-            $stmt->execute([$package_id]);
-
-        } elseif ($action === 'remine') {
-            // Reset for new cycle
+        try {
+            // Get package details
             $stmt = $pdo->prepare("
-                UPDATE user_packages 
-                SET current_cycle = 1, status = 'active' 
-                WHERE id = ?
+                SELECT up.*, p.price, p.name
+                FROM user_packages up
+                JOIN packages p ON up.package_id = p.id
+                WHERE up.id = ? AND up.user_id = ? AND up.status = 'active'
+                AND up.current_cycle > ?
             ");
-            $stmt->execute([$package_id]);
+            $stmt->execute([$package_id, $user_id, BONUS_MONTHS]);
+            $package = $stmt->fetch();
 
-            // Deduct from ewallet for new purchase
-            if (processEwalletTransaction($user_id, 'purchase', -$package['price'], "Remine package: {$package['name']}", $package['id'])) {
-                // Start new cycle
-                $stmt = $pdo->prepare("
-                    INSERT INTO user_packages (user_id, package_id, current_cycle, total_cycles) 
-                    VALUES (?, ?, 1, ?)
-                ");
-                $stmt->execute([$user_id, $package['package_id'], BONUS_MONTHS]);
+            if (!$package) {
+                if ($shouldBegin)
+                    $pdo->rollBack();
+                return ['success' => false, 'message' => 'Package not eligible'];
             }
-        }
 
-        $pdo->commit();
-        return ['success' => true, 'message' => ucfirst($action) . ' processed successfully'];
+            if ($action === 'withdraw') {
+                // Use processEwalletTransaction (which handles its own transactions)
+                $success = processEwalletTransaction(
+                    $user_id,
+                    'refund',
+                    $package['price'],
+                    "Withdraw completed package: {$package['name']}",
+                    $package['id']
+                );
+
+                if ($success) {
+                    $stmt = $pdo->prepare("UPDATE user_packages SET status = 'withdrawn' WHERE id = ?");
+                    $stmt->execute([$package_id]);
+                }
+
+            } elseif ($action === 'remine') {
+                $success = processEwalletTransaction(
+                    $user_id,
+                    'purchase',
+                    -$package['price'],
+                    "Remine package: {$package['name']}",
+                    $package['id']
+                );
+
+                if ($success) {
+                    $stmt = $pdo->prepare("
+                        UPDATE user_packages 
+                        SET current_cycle = 1, status = 'active' 
+                        WHERE id = ?
+                    ");
+                    $stmt->execute([$package_id]);
+                }
+            }
+
+            if ($shouldBegin) {
+                $pdo->commit();
+            }
+
+            return ['success' => $success, 'message' => ucfirst($action) . ' processed successfully'];
+
+        } catch (Exception $e) {
+            if ($shouldBegin && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
 
     } catch (Exception $e) {
-        if (isset($pdo))
-            $pdo->rollBack();
-        logEvent("Withdraw/remine error: " . $e->getMessage(), 'error');
         return ['success' => false, 'message' => 'Processing failed'];
     }
 }
@@ -1067,6 +1077,51 @@ function debugLog($message)
     $file = __DIR__ . '/../logs/debug_' . date('Y-m-d') . '.log';
     $time = date('Y-m-d H:i:s');
     file_put_contents($file, "[$time] $message\n", FILE_APPEND | LOCK_EX);
+}
+
+/**
+ * Execute code within a transaction context
+ * @param callable $callback Function to execute
+ * @return mixed Result of callback
+ */
+function executeInTransaction($callback)
+{
+    // Clean usage pattern
+    // $result = executeInTransaction(function ($pdo) use ($user_id, $amount) {
+    //     // Your transactional code here
+    //     $stmt = $pdo->prepare("UPDATE ewallet SET balance = balance + ? WHERE user_id = ?");
+    //     $stmt->execute([$amount, $user_id]);
+    //     return true;
+    // });
+
+    try {
+        $pdo = getConnection();
+        $inTransaction = $pdo->inTransaction();
+        $shouldBegin = !$inTransaction;
+
+        if ($shouldBegin) {
+            $pdo->beginTransaction();
+        }
+
+        try {
+            $result = $callback($pdo);
+
+            if ($shouldBegin && $pdo->inTransaction()) {
+                $pdo->commit();
+            }
+
+            return $result;
+
+        } catch (Exception $e) {
+            if ($shouldBegin && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+
+    } catch (Exception $e) {
+        throw $e;
+    }
 }
 
 ?>

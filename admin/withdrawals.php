@@ -55,24 +55,42 @@ try {
         }
 
         if ($action === 'approve') {
-            // Update withdrawal request status
-            $stmt = $pdo->prepare("
-                UPDATE withdrawal_requests 
-                SET status = 'completed', admin_notes = ?, processed_at = NOW() 
-                WHERE id = ?
-            ");
-            $stmt->execute([$admin_notes, $request_id]);
+            $inTransaction = $pdo->inTransaction();
+            $shouldBegin = !$inTransaction;
 
-            // Find and complete the pending withdrawal transaction
-            $stmt = $pdo->prepare("
-                UPDATE ewallet_transactions 
-                SET status = 'completed', description = CONCAT(description, ' - Completed') 
-                WHERE reference_id = ? AND type = 'withdrawal' AND status = 'pending'
-            ");
-            $stmt->execute([$request_id]);
+            if ($shouldBegin) {
+                $pdo->beginTransaction();
+            }
 
-            redirectWithMessage('withdrawals.php', 'Withdrawal approved and marked as completed.', 'success');
+            try {
+                // Update withdrawal request
+                $stmt = $pdo->prepare("
+            UPDATE withdrawal_requests 
+            SET status = 'completed', admin_notes = ?, processed_at = NOW() 
+            WHERE id = ?
+        ");
+                $stmt->execute([$admin_notes, $request_id]);
 
+                // Update transaction status
+                $stmt = $pdo->prepare("
+            UPDATE ewallet_transactions 
+            SET status = 'completed', description = CONCAT(description, ' - Completed') 
+            WHERE reference_id = ? AND type = 'withdrawal' AND status = 'pending'
+        ");
+                $stmt->execute([$request_id]);
+
+                if ($shouldBegin) {
+                    $pdo->commit();
+                }
+
+                redirectWithMessage('withdrawals.php', 'Withdrawal approved.', 'success');
+
+            } catch (Exception $e) {
+                if ($shouldBegin && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                redirectWithMessage('withdrawals.php', 'Error processing withdrawal.', 'error');
+            }
         } elseif ($action === 'reject') {
             // Update withdrawal request status
             $stmt = $pdo->prepare("
@@ -294,7 +312,8 @@ try {
                                                         <div class="modal-body">
                                                             <p>Approve withdrawal of
                                                                 <?= formatCurrency($withdrawal['amount']) ?> for
-                                                                <?= htmlspecialchars($withdrawal['username']) ?>?</p>
+                                                                <?= htmlspecialchars($withdrawal['username']) ?>?
+                                                            </p>
                                                             <p><strong>Wallet:</strong>
                                                                 <?= htmlspecialchars($withdrawal['wallet_address']) ?></p>
                                                             <input type="hidden" name="csrf_token"
