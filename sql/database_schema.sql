@@ -300,3 +300,6 @@ MODIFY COLUMN `type` ENUM(
     'transfer',
     'transfer_charge'
 ) COLLATE utf8mb4_unicode_ci NOT NULL;
+
+ALTER TABLE user_packages
+ADD next_bonus_date DATETIME NULL AFTER purchase_date;

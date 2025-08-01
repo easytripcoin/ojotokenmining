@@ -227,60 +227,132 @@ function getTransactionHistory($user_id, $limit = 20, $offset = 0)
     }
 }
 
-// for debugging purposes
+/**
+ * Purchase a package for a user
+ * @param int   $user_id
+ * @param int   $package_id
+ * @return array  ['success'=>bool,'message'=>string]
+ */
 function purchasePackage($user_id, $package_id)
 {
     try {
         $pdo = getConnection();
 
-        // Get package details
+        // 1️⃣  Fetch package details
         $package = getPackageById($package_id);
         if (!$package) {
             return ['success' => false, 'message' => 'Package not found.'];
         }
 
-        // Check ewallet balance
+        // 2️⃣  Check balance
         $balance = getEwalletBalance($user_id);
         if ($balance < $package['price']) {
-            return ['success' => false, 'message' => 'Insufficient ewallet balance.'];
+            return ['success' => false, 'message' => 'Insufficient e-wallet balance.'];
         }
 
-        // Begin transaction
+        // 3️⃣  Transaction block
         $pdo->beginTransaction();
 
-        try {
-            // Deduct amount from ewallet
-            $deduct_success = processEwalletTransaction($user_id, 'purchase', -$package['price'], "Package purchase: {$package['name']}", $package_id);
-
-            if (!$deduct_success) {
-                $pdo->rollBack();
-                return ['success' => false, 'message' => 'Failed to process ewallet transaction'];
-            }
-
-            // Add user package record
-            $stmt = $pdo->prepare("INSERT INTO user_packages (user_id, package_id) VALUES (?, ?)");
-            if (!$stmt->execute([$user_id, $package_id])) {
-                $pdo->rollBack();
-                return ['success' => false, 'message' => 'Failed to add package record'];
-            }
-
-            // Process referral bonuses (outside transaction)
-            $pdo->commit();
-            processReferralBonuses($user_id, $package['price'], $package_id);
-
-            return ['success' => true, 'message' => "Package '{$package['name']}' purchased successfully!"];
-
-        } catch (Exception $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-            return ['success' => false, 'message' => 'Package purchase failed: ' . $e->getMessage()];
+        // 3-a. Debit the buyer
+        $debitOk = processEwalletTransaction(
+            $user_id,
+            'purchase',
+            -$package['price'],
+            "Package purchase: {$package['name']}",
+            $package_id
+        );
+        if (!$debitOk) {
+            throw new Exception('Could not debit e-wallet.');
         }
 
+        // 3-b. Insert user_packages row
+        $stmt = $pdo->prepare(
+            "INSERT INTO user_packages 
+             (user_id, package_id, purchase_date, current_cycle, total_cycles, status, next_bonus_date)
+             VALUES (?, ?, NOW(), 1, ?, 'active', ?)"
+        );
+        $stmt->execute([
+            $user_id,
+            $package_id,
+            BONUS_MONTHS,          // = 3
+            (new DateTime('now'))->modify('+30 days')->format('Y-m-d H:i:s')
+        ]);
+        // $userPackageId = $pdo->lastInsertId();
+
+        // 3-c. Commit
+        $pdo->commit();
+
+        // 4️⃣  Referral bonuses (outside the main transaction)
+        processReferralBonuses($user_id, $package['price'], $package_id);
+
+        return [
+            'success' => true,
+            'message' => "Package '{$package['name']}' purchased successfully!"
+        ];
+
     } catch (Exception $e) {
-        return ['success' => false, 'message' => 'Package purchase failed. Please try again.'];
+        if (isset($pdo) && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        logEvent("purchasePackage error: " . $e->getMessage(), 'error');
+        return ['success' => false, 'message' => 'Purchase failed. Please try again.'];
     }
 }
+
+// for debugging purposes
+// function purchasePackage($user_id, $package_id)
+// {
+//     try {
+//         $pdo = getConnection();
+
+//         // Get package details
+//         $package = getPackageById($package_id);
+//         if (!$package) {
+//             return ['success' => false, 'message' => 'Package not found.'];
+//         }
+
+//         // Check ewallet balance
+//         $balance = getEwalletBalance($user_id);
+//         if ($balance < $package['price']) {
+//             return ['success' => false, 'message' => 'Insufficient ewallet balance.'];
+//         }
+
+//         // Begin transaction
+//         $pdo->beginTransaction();
+
+//         try {
+//             // Deduct amount from ewallet
+//             $deduct_success = processEwalletTransaction($user_id, 'purchase', -$package['price'], "Package purchase: {$package['name']}", $package_id);
+
+//             if (!$deduct_success) {
+//                 $pdo->rollBack();
+//                 return ['success' => false, 'message' => 'Failed to process ewallet transaction'];
+//             }
+
+//             // Add user package record
+//             $stmt = $pdo->prepare("INSERT INTO user_packages (user_id, package_id) VALUES (?, ?)");
+//             if (!$stmt->execute([$user_id, $package_id])) {
+//                 $pdo->rollBack();
+//                 return ['success' => false, 'message' => 'Failed to add package record'];
+//             }
+
+//             // Process referral bonuses (outside transaction)
+//             $pdo->commit();
+//             processReferralBonuses($user_id, $package['price'], $package_id);
+
+//             return ['success' => true, 'message' => "Package '{$package['name']}' purchased successfully!"];
+
+//         } catch (Exception $e) {
+//             if ($pdo->inTransaction()) {
+//                 $pdo->rollBack();
+//             }
+//             return ['success' => false, 'message' => 'Package purchase failed: ' . $e->getMessage()];
+//         }
+
+//     } catch (Exception $e) {
+//         return ['success' => false, 'message' => 'Package purchase failed. Please try again.'];
+//     }
+// }
 
 // /**
 //  * Process referral bonuses for a package purchase

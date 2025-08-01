@@ -56,21 +56,25 @@ CREATE TABLE IF NOT EXISTS packages (
 DROP TABLE IF EXISTS user_packages;
 
 CREATE TABLE IF NOT EXISTS user_packages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    package_id INT NOT NULL,
-    purchase_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    current_cycle INT DEFAULT 1,
-    total_cycles INT DEFAULT 3,
-    status ENUM(
+    `id` int NOT NULL AUTO_INCREMENT,
+    `user_id` int NOT NULL,
+    `package_id` int NOT NULL,
+    `purchase_date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+    `next_bonus_date` datetime DEFAULT NULL,
+    `current_cycle` int DEFAULT '1',
+    `total_cycles` int DEFAULT '3',
+    `status` enum(
         'active',
         'completed',
         'withdrawn'
-    ) DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-    FOREIGN KEY (package_id) REFERENCES packages (id) ON DELETE CASCADE
-);
+    ) COLLATE utf8mb4_unicode_ci DEFAULT 'active',
+    `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `user_id` (`user_id`),
+    KEY `package_id` (`package_id`),
+    CONSTRAINT `user_packages_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `user_packages_ibfk_2` FOREIGN KEY (`package_id`) REFERENCES `packages` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB AUTO_INCREMENT = 5 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- ===================================================
 -- E-WALLET SYSTEM
@@ -115,7 +119,7 @@ CREATE TABLE IF NOT EXISTS `ewallet_transactions` (
     PRIMARY KEY (`id`),
     KEY `user_id` (`user_id`),
     CONSTRAINT `ewallet_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 16 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
+) ENGINE = InnoDB AUTO_INCREMENT = 16 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- ===================================================
 -- REQUESTS SYSTEM
