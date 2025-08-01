@@ -121,7 +121,7 @@ function addEwalletTransaction($user_id, $type, $amount, $description, $referenc
         }
 
         // Determine the status based on the type
-        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge', 'purchase']) ? 'completed' : 'pending';
+        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge', 'purchase', 'refund']) ? 'completed' : 'pending';
 
         // Ensure is_withdrawable is a valid integer (0 or 1)
         $is_withdrawable = (int) $is_withdrawable;
@@ -179,7 +179,7 @@ function processEwalletTransaction($user_id, $type, $amount, $description, $refe
         }
 
         // Add transaction
-        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge', 'purchase']) ? 'completed' : 'pending';
+        $status = in_array($type, ['referral', 'bonus', 'transfer', 'transfer_charge', 'purchase', 'refund']) ? 'completed' : 'pending';
         $is_withdrawable = ($type === 'transfer' || $type === 'purchase') ? 0 : 1;
 
         $stmt = $pdo->prepare("

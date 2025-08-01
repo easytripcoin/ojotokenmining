@@ -303,3 +303,10 @@ MODIFY COLUMN `type` ENUM(
 
 ALTER TABLE user_packages
 ADD next_bonus_date DATETIME NULL AFTER purchase_date;
+
+-- UPDATE user_packages
+-- SET
+--     current_cycle = 4, -- triggers the buttons
+--     status = 'active'
+-- WHERE
+--     id = < your_user_package_id >;
